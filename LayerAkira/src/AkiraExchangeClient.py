@@ -133,8 +133,8 @@ class AkiraExchangeClient:
                         res.data]
         return res
 
-    async def have_sufficient_amount_to_route(self, router_address: int, block='latest'):
-        return await self._call('have_sufficient_amount_to_route', block, router_address)
+    async def have_sufficient_amount_to_route(self, router_address: ContractAddress, block='latest'):
+        return await self._call('have_sufficient_amount_to_route', block, router_address.as_int())
 
     async def _common(self, call, account, max_fee, nonce, on_succ_send=False, skip_sim=False):
         if skip_sim:

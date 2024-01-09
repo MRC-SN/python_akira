@@ -318,21 +318,33 @@ class HttpClient:
         url = f'{self._http_host}/book/snapshot?base={self._tokens_to_addr[base]}&quote={self._tokens_to_addr[quote]}&to_safe_book={int(safe_book)}'
         return (await self._get_query(url, jwt))
 
-    def spawn_order(self, acc: ContractAddress, **kwargs):
+    async def _spawn_order(self, acc: ContractAddress, **kwargs):
         signer_pub_key = ContractAddress(self._address_to_account[acc].signer.public_key)
         pk = self._signer_key_to_pk[signer_pub_key]
         order = Order(kwargs['maker'], FixedPoint(kwargs['px'], 0), FixedPoint(kwargs['qty'], 0),
                       kwargs['ticker'], kwargs['fee'], 2, random_int(), kwargs['nonce'],
                       kwargs['order_flags'], kwargs.get('router_signer', ZERO_ADDRESS),
-                      kwargs['base_asset'], (0, 0), (0, 0), int(datetime.datetime.now().timestamp()),
+                      kwargs['base_asset'], (1, 1), (0, 0), int(datetime.datetime.now().timestamp()),
                       )
         if order.is_passive_order():
             order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0)
             order.router_signer = ZERO_ADDRESS
+
+        # unsafe taker through router, if not explicitly specified
+        if not order.flags.to_safe_book and not order.is_passive_order() and order.router_signer == ZERO_ADDRESS:
+            jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
+            res = (await self._post_query(f'{self._http_host}/unsafe_sign', self._order_serder.serialize(order), jwt))[
+                'result']
+            order.fee.trade_fee.taker_pbips = res['taker_pbips']
+            order.fee.router_fee.recipient = ContractAddress(res['fee_recipient'])
+            order.fee.router_fee.taker_pbips = res['max_taker_pbips']
+            order.fee.router_fee.maker_pbips = 0
+            order.router_signer = ContractAddress(res['router_signer'])
+            order.router_sign = tuple(res['router_signature'])
+
         order_hash = self.hasher.hash(order)
         order.sign = list(message_signature(order_hash, int(pk, 16)))
-        if not order.flags.to_safe_book and not order.is_passive_order():
-            order.router_sign = list(message_signature(order_hash, int(kwargs['router_pk'], 16)))
+
         try:
             return self._order_serder.serialize(order)
         except Exception as e:
@@ -342,20 +354,21 @@ class HttpClient:
     async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: str, qty: str, side: str, type: str,
                           post_only: bool, full_fill: bool,
                           best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
-                          router_fee: FixedFee = None):
+                          router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None):
         px = precise_to_price_convert(px, self._token_to_decimals[ticker.quote])
         qty = precise_to_price_convert(qty, self._token_to_decimals[ticker.base])
         info = self._trading_acc_to_user_info[acc]
 
         order_flags = OrderFlags(full_fill, best_lvl, post_only, side == 'SELL', type == 'MARKET', safe)
 
-        order = self.spawn_order(acc, px=px, qty=qty, maker=maker, order_flags=order_flags, ticker=ticker,
-                                 fee=OrderFee(
-                                     FixedFee(self.fee_recipient, *info.fees[ticker]),
-                                     FixedFee(ZERO_ADDRESS, 0, 0) if safe else router_fee,
-                                     gas_fee), nonce=info.nonce,
-                                 base_asset=10 ** self._token_to_decimals[ticker.base]
-                                 )
+        order = await self._spawn_order(acc, px=px, qty=qty, maker=maker, order_flags=order_flags, ticker=ticker,
+                                        fee=OrderFee(
+                                            FixedFee(self.fee_recipient, *info.fees[ticker]),
+                                            FixedFee(ZERO_ADDRESS, 0, 0) if router_fee is None else router_fee,
+                                            gas_fee), nonce=info.nonce,
+                                        base_asset=10 ** self._token_to_decimals[ticker.base],
+                                        router_signer=router_signer if router_signer is not None else ZERO_ADDRESS
+                                        )
         if order is None:
             logging.warning(f'Failed to spawn order {order}')
             return

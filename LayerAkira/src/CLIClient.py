@@ -144,7 +144,7 @@ class CLIClient:
                     print(await CLIClient.handle_request(http_client, args[0].strip(), args[1:], trading_account,
                                                          cli_cfg.gas_fee_steps))
             except Exception as e:
-                logging.error(e)
+                logging.exception(e)
 
     @staticmethod
     async def handle_request(client: HttpClient, command: str, args: List[str],
@@ -225,7 +225,7 @@ class CLIClient:
             return await client.place_order(trading_account, TradedPair(base, quote),
                                             px, qty, side, type, bool(int(post_only)), bool(int(full_fill)),
                                             bool(int(best_lvl)), safe, trading_account,
-                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe]), None
+                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe])
                                             )
 
         elif command.startswith('cancel_order'):

@@ -1,7 +1,5 @@
 node_url = "https://starknet-testnet.blastapi.io/c973c229-c997-4595-b9ed-0127335f467c"
 exchange_address = '0x068d20e2106c0bf947632893283ea6e29186f39aa25c0441f03c21b0f8418ce7'
-#http = 'http://18.183.87.4:4431'
-#wss = 'ws://18.183.87.4:4432/ws'
 http = 'http://localhost:4431'
 wss = 'ws://localhost:4432/ws'
 gas_oracle_skew_multiplier = 1.25

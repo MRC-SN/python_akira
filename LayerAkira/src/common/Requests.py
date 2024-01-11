@@ -5,7 +5,6 @@ from typing import Optional, Tuple
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import OrderFee, GasFee
-from LayerAkira.src.common.FixedPoint import FixedPoint
 from LayerAkira.src.common.TradedPair import TradedPair
 
 OrderTimestamp = int
@@ -44,8 +43,8 @@ class OrderType(Enum):
 @dataclass
 class Order:
     maker: ContractAddress
-    price: FixedPoint
-    quantity: FixedPoint
+    price: int
+    quantity: int
     ticker: TradedPair
     fee: OrderFee
     number_of_swaps_allowed: int
@@ -134,7 +133,7 @@ class IncreaseNonce:
 class Withdraw:
     maker: ContractAddress
     token: ERC20Token
-    amount: FixedPoint
+    amount: int
     salt: int
     sign: Tuple[int, int]
     gas_fee: GasFee

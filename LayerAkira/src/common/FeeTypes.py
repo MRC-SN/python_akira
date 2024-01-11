@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.ContractAddress import ContractAddress
-from LayerAkira.src.common.FixedPoint import FixedPoint
+from LayerAkira.src.common.ERC20Token import ERC20Token
 
 
 @dataclass
@@ -20,7 +19,7 @@ class FixedFee:
 class GasFee:
     gas_per_action: int
     fee_token: ERC20Token
-    max_gas_price: FixedPoint
+    max_gas_price: int
     conversion_rate: Tuple[int, int]  # conversion rate to
 
 

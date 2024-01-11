@@ -19,7 +19,7 @@ def serialize_gas_fee(gas_fee: GasFee, erc_to_addr: Dict[ERC20Token, ContractAdd
     return True, {
         "gas_per_action": gas_fee.gas_per_action,
         'fee_token': erc_to_addr[gas_fee.fee_token].as_str(),
-        'max_gas_price': gas_fee.max_gas_price.value,
+        'max_gas_price': gas_fee.max_gas_price,
         'conversion_rate': gas_fee.conversion_rate
     }
 
@@ -31,8 +31,8 @@ class SimpleOrderSerializer():
     def serialize(self, data: Order):
         return {
             'maker': data.maker.as_str(),
-            'price': data.price.value,
-            'quantity': data.quantity.value,
+            'price': data.price,
+            'quantity': data.quantity,
             'base_asset': data.base_asset,
             "created_at": data.created_at,
             'flags': {

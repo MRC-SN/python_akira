@@ -1,9 +1,9 @@
 # Always prefer setuptools over distutils
-from setuptools import setup, find_packages
-
 # To use a consistent encoding
 from codecs import open
 from os import path
+
+from setuptools import setup
 
 # The directory containing this file
 HERE = path.abspath(path.dirname(__file__))
@@ -15,8 +15,8 @@ with open(path.join(HERE, 'README.md'), encoding='utf-8') as f:
 # This call to setup() does all the work
 setup(
     name="LayerAkira",
-    version="1.0.0a1",
-    description="Client for interaction with LayerAkira exchange",
+    version="1.0.0a4",
+    description="library for interaction with LayerAkira exchange",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/LayerAkira/python_akira",
@@ -36,7 +36,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent"
     ],
-    packages=["LayerAkira"],  # "LayerAkira.src", "LayerAkira.src.common", "LayerAkira.executables"],
+    packages=["LayerAkira", "LayerAkira.src", "LayerAkira.src.common", "LayerAkira.executables"],
     include_package_data=True,
     install_requires=[
         'websockets',

@@ -17,7 +17,7 @@ class AkiraFormatter:
             'withdraw': {
                 'maker': withdraw.maker.as_int(),
                 'token': self._erc_to_addr[withdraw.token].as_int(),
-                'amount': withdraw.amount.value,
+                'amount': withdraw.amount,
                 'salt': withdraw.salt,
                 'gas_fee': self._prepare_gas_fee(withdraw.gas_fee),
                 'reciever': withdraw.receiver.as_int(),
@@ -29,7 +29,7 @@ class AkiraFormatter:
         return {
             'sign': tuple(order.sign), 'router_sign': tuple(order.router_sign),
             'order': {
-                'maker': order.maker.as_int(), 'price': order.price.value, 'quantity': order.quantity.value,
+                'maker': order.maker.as_int(), 'price': order.price, 'quantity': order.quantity,
                 'ticker': (
                     self._erc_to_addr[order.ticker.base].as_int(), self._erc_to_addr[order.ticker.quote].as_int()),
                 'fee': {
@@ -60,7 +60,7 @@ class AkiraFormatter:
         return {
             'gas_per_action': gas_fee.gas_per_action,
             'fee_token': self._erc_to_addr[gas_fee.fee_token].as_int(),
-            'max_gas_price': gas_fee.max_gas_price.value,
+            'max_gas_price': gas_fee.max_gas_price,
             'conversion_rate': tuple(gas_fee.conversion_rate),
         }
 

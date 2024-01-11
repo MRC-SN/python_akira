@@ -1,12 +1,14 @@
 node_url = "https://starknet-testnet.blastapi.io/c973c229-c997-4595-b9ed-0127335f467c"
 exchange_address = '0x068d20e2106c0bf947632893283ea6e29186f39aa25c0441f03c21b0f8418ce7'
-http = 'http://localhost:8080'
-wss = 'ws://localhost:8888/ws'
+#http = 'http://18.183.87.4:4431'
+#wss = 'ws://18.183.87.4:4432/ws'
+http = 'http://localhost:4431'
+wss = 'ws://localhost:4432/ws'
 gas_oracle_skew_multiplier = 1.25
 is_testnet = true
 verbose = true
 
-trading_account = {account_address ='0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F', public_key='0x6599a0c34699a5c48ae6ff359decc0618ce982be00654f2b12945cae5bb6788', private_key='place '}
+trading_account = {account_address ='0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F', public_key='0x6599a0c34699a5c48ae6ff359decc0618ce982be00654f2b12945cae5bb6788', private_key='pk'}
 
 [[gas_action]]
 safe = true
@@ -38,4 +40,3 @@ decimals = 6
 symbol = "USDT"
 address = "0x0386e8d061177f19b3b485c20e31137e6f6bc497cc635ccdfcab96fadf5add6a"
 decimals = 6
-

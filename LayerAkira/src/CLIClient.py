@@ -9,11 +9,21 @@ from aioconsole import ainput
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 
-from LayerAkira.src.HttpClient import HttpClient, GAS_FEE_ACTION
+from AkiraExchangeClient import AkiraExchangeClient
+from AkiraFormatter import AkiraFormatter
+from Hasher import SnHasher
+from JointHttpClient import JointHttpClient
+from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.WsClient import WsClient, Stream
+from common.FeeTypes import GasFee
+from common.common import precise_to_price_convert
+
+
+def GAS_FEE_ACTION(gas: int, fix_steps):
+    return GasFee(fix_steps, ERC20Token.ETH, gas, (1, 1))
 
 
 @dataclass
@@ -58,19 +68,41 @@ def parse_cli_cfg(file_path: str):
 
 
 class CLIClient:
+    """
+    First what user need is to
+    1) bind_to_signer -> binds public key of account address on layer akira smart contract
+    2) approve exchange for tokens -> so exchange can transfer erc tokens on user invoking deposit
+    3) execute deposits
+    ....
+    after this user can interact with API
+    1) issue jwt token
+    2) query gas -> for some trading activities user need specify max gas he willing to spend
 
-    @staticmethod
-    async def start(cli_cfg_path: str,logs_file_path='logs.txt'):
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename=logs_file_path)
+    ....
+    there is some presets command that one can use
+    """
 
-        cli_cfg = parse_cli_cfg(cli_cfg_path)
-        client = FullNodeClient(node_url=cli_cfg.node)
-        erc_to_addr = {token.symbol: token.address for token in cli_cfg.tokens}
-        erc_to_decimals = {token.symbol: token.decimals for token in cli_cfg.tokens}
-        http_client = HttpClient(client, cli_cfg.exchange_address, erc_to_addr, erc_to_decimals, cli_cfg.chain_id,
-                                 cli_cfg.http,
-                                 cli_cfg.gas_multiplier, verbose=cli_cfg.verbose)
-        await http_client.init()
+    def __init__(self, cli_cfg_path: str):
+        self.cli_cfg = parse_cli_cfg(cli_cfg_path)
+
+    async def start(self):
+        node_client = FullNodeClient(node_url=self.cli_cfg.node)
+        erc_to_addr = {token.symbol: token.address for token in self.cli_cfg.tokens}
+        contract_client = AkiraExchangeClient(node_client, self.cli_cfg.exchange_address, erc_to_addr)
+        await contract_client.init()
+
+        sn_hasher = SnHasher(AkiraFormatter(erc_to_addr),
+                             contract_client.akira.contract.data.parsed_abi.defined_structures)
+        self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
+        api_client = AsyncApiHttpClient(sn_hasher, erc_to_addr, self.cli_cfg.http, self.cli_cfg.verbose)
+
+        self.exchange_client = JointHttpClient(node_client, api_client, contract_client,
+                                               self.cli_cfg.exchange_address, erc_to_addr,
+                                               self._erc_to_decimals,
+                                               self.cli_cfg.chain_id,
+                                               self.cli_cfg.gas_multiplier, self.cli_cfg.verbose)
+
+        await self.exchange_client.init()
 
         async def sub_consumer(d):
             logging.info(f'Subscription emitted {d}')
@@ -89,65 +121,70 @@ class CLIClient:
                 return True
             return False
 
-        async def issue_listen_key(acc: ContractAddress):
-            return await http_client.query_listen_key(acc)
+        async def issue_listen_key(signer: ContractAddress):
+            return (await self.exchange_client.query_listen_key(signer)).data
 
-        ws = WsClient(issue_listen_key, cli_cfg.wss, verbose=cli_cfg.verbose)
-        trading_account = cli_cfg.trading_account[0]
+        ws = WsClient(issue_listen_key, self.cli_cfg.wss, verbose=self.cli_cfg.verbose)
+        trading_account = self.cli_cfg.trading_account[0]
         presets_commands = [
-            ['set_account', cli_cfg.trading_account],
+            ['set_account', self.cli_cfg.trading_account],
             # ['bind_to_signer', []],  # binds trading account to public key, can be invoked onlu once for trading account
             ['display_chain_info', []],  # print chain info
             ['r_auth', []],  # issue jwt token
             ['query_gas', []],  # query gas price
             ['user_info', []],  # query and safe in Client user info from exchange
-            ['start_ws', [cli_cfg.trading_account[1]]],
+            ['start_ws', [self.cli_cfg.trading_account[1]]],
+            ['sleep', []],
             ['subscribe_book', ['trade', 'ETH', 'USDC', '1']],
             ['subscribe_book', ['bbo', 'ETH', 'USDC', '1']],
             ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
-            ['subscribe_fills', [cli_cfg.trading_account[0]]],
+            ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
 
             # ['approve_exchange', ['ETH', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
             # ['deposit', ['ETH', '0.0000000001']],
             # ['deposit', ['USDC', '50']],
             # ['request_withdraw_on_chain', ['USDC', '10']],
-            ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
+            # ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
             #
             # ['get_bbo', ['ETH/USDC', '1']],
             # ['get_book', ['ETH/USDC', '1']],
             #
             # ['get_order', ['42']],
-            # ['get_orders', ['1', '20', '0']],
+            ['get_orders', ['1', '20', '0']],
             #
             # ['withdraw', ['USDC', '4']],
-            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE']],
-            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE']],
+            ['place_order', ['ETH/USDC', '1945', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE']],
+            ['place_order', ['ETH/USDC', '1944', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE']],
+            ['place_order', ['ETH/USDC', '1945', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE']],
+            ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE']],
+            ['place_order', ['ETH/USDC', '1940', '0.00000041', 'SELL', 'MARKET', '0', '0', '0', 'SAFE']],
             # ['cancel_order', ['345345']],
             # ['cancel_all', []]
             #     'withdraw 0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F USDC 25'
         ]
+        # place_order ETH/USDC 1945 0.00000005 BUY LIMIT 1 0 0  SAFE
 
         for command, args in presets_commands:
             try:
-                if cli_cfg.verbose: logging.info(f'Executing {command} {args}')
+                if self.cli_cfg.verbose: logging.info(f'Executing {command} {args}')
                 if not await handle_websocket_req(command, args):
-                    print(await CLIClient.handle_request(http_client, command, args, trading_account, cli_cfg.gas_fee_steps))
+                    print(await self.handle_request(self.exchange_client, command, args, trading_account,
+                                                    self.cli_cfg.gas_fee_steps))
             except Exception as e:
-                logging.error(e)
+                logging.exception(e)
         while True:
             try:
                 request = await ainput(">>> ")
                 args = request.split()
-                if cli_cfg.verbose: logging.info(f'Executing {args[0].strip()} {args[1:]}')
+                if self.cli_cfg.verbose: logging.info(f'Executing {args[0].strip()} {args[1:]}')
                 if not await handle_websocket_req(args[0].strip(), args[1:]):
-                    print(await CLIClient.handle_request(http_client, args[0].strip(), args[1:], trading_account,
-                                                         cli_cfg.gas_fee_steps))
+                    print(await self.handle_request(self.exchange_client, args[0].strip(), args[1:], trading_account,
+                                                    self.cli_cfg.gas_fee_steps))
             except Exception as e:
                 logging.exception(e)
 
-    @staticmethod
-    async def handle_request(client: HttpClient, command: str, args: List[str],
+    async def handle_request(self, client: JointHttpClient, command: str, args: List[str],
                              trading_account: Optional[ContractAddress],
                              gas_fee_steps: Dict[str, Dict[bool, int]]):
         async def wait_tx_receipt(tx_hash: str):
@@ -155,6 +192,9 @@ class CLIClient:
             if not is_succ:
                 logging.warning(f'Failed to wait for receipt for {tx_hash} due {reciept_or_err}')
             return reciept_or_err
+
+        if command.startswith('sleep'):
+            return await asyncio.sleep(5)
 
         if command.startswith('query_gas'):
             return await client.query_gas_price(trading_account)
@@ -221,6 +261,8 @@ class CLIClient:
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
             safe = safe == 'SAFE'
+            px = precise_to_price_convert(px, self._erc_to_decimals[quote])
+            qty = precise_to_price_convert(qty, self._erc_to_decimals[base])
 
             return await client.place_order(trading_account, TradedPair(base, quote),
                                             px, qty, side, type, bool(int(post_only)), bool(int(full_fill)),
@@ -235,7 +277,9 @@ class CLIClient:
             return await client.cancel_order(trading_account, trading_account, None)
 
         elif command.startswith('withdraw'):
-            return await client.withdraw(trading_account, trading_account, ERC20Token(args[0]), args[1],
+            erc = ERC20Token(args[0])
+            amount = precise_to_price_convert(args[1], self._erc_to_decimals[erc])
+            return await client.withdraw(trading_account, trading_account, erc, amount,
                                          GAS_FEE_ACTION(client.gas_price, gas_fee_steps['withdraw'][True]))
 
         elif command.startswith('query_listen_key'):

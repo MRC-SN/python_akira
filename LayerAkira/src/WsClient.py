@@ -4,13 +4,14 @@ import logging
 from asyncio import exceptions
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional, Callable, Awaitable
+from typing import Dict, Optional, Callable, Awaitable, List, Any, Union
 
 import websockets
 
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
+from common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, OrderMatcherResult
 
 
 class Stream(str, Enum):
@@ -26,7 +27,8 @@ class WsClient:
         Only one callback per unique subscription is supported
     """
 
-    ClientCallback = Callable[[Optional[Dict]], Awaitable[None]]  # If None message emitted -> disconnection happened
+    # If None message emitted -> disconnection happened
+    ClientCallback = Callable[[Optional[Union[BBO, Snapshot, Trade, ExecReport]]], Awaitable[None]]
 
     @dataclass
     class Job:
@@ -48,7 +50,7 @@ class WsClient:
         self._exchange_wss_host = exchange_wss_host
         self._query_listen_key = q_listen_key_cb
         self._jobs: Dict[int, WsClient.Job] = {}
-        self._subscribers: Dict[int, Callable[[Optional[Dict]], Awaitable[None]]] = {}
+        self._subscribers: Dict[int, Callable[[Optional[Any]], Awaitable[None]]] = {}
         self._timeout = timeout
         self._idx = 0
         self._ws = None
@@ -69,6 +71,9 @@ class WsClient:
         async def job():
             try:
                 listen_key = (await self._query_listen_key(signer))
+                if listen_key is None:
+                    logging.warning('Failed to query listen key')
+                    return
                 if self._verbose: logging.info(f'Connecting {self._exchange_wss_host}')
                 async with websockets.connect(uri=self._exchange_wss_host,
                                               extra_headers={'Authorization': listen_key, 'Signer': signer.as_str()},
@@ -116,7 +121,10 @@ class WsClient:
             b, q = d['pair'].split('-')
             pair = TradedPair(ERC20Token(b), ERC20Token(q))
             stream_id = (hash((stream, hash(pair), d['safe'])))
-            await self._subscribers[stream_id](d)
+            await self._subscribers[stream_id](self._parse_md(d['result'], Stream(stream)))
+        elif stream == Stream.FILLS:
+            stream_id = hash((Stream.FILLS.value, ContractAddress(d['result']['client'])))
+            await self._subscribers[stream_id](self._parse_md(d['result'], Stream(stream)))
         else:
             logging.warning(f'Unknown packet {d}')
 
@@ -172,3 +180,23 @@ class WsClient:
 
         data = self._jobs.pop(req.idx)
         return data.response
+
+    @staticmethod
+    def _parse_md(d: Dict, stream: Stream):
+        if stream == Stream.BBO:
+            def retrieve_lvl(data: List):
+                return TableLevel(data[0], data[1]) if len(data) > 0 else None
+
+            return BBO(retrieve_lvl(d['bid']), retrieve_lvl(d['ask']), d['time'])
+        elif stream == Stream.BOOK_DELTA:
+            return Snapshot(
+                Table([TableLevel(x[0], x[1]) for x in d['bids']], [TableLevel(x[0], x[1]) for x in d['asks']]),
+                d['msg_id'], d['time']
+            )
+        elif stream == Stream.TRADE:
+            return Trade(d['px'], d['qty'], d['is_sell_side'], d['time'])
+        elif stream == Stream.FILLS:
+            b, q = d['pair'].split('-')
+            return ExecReport(ContractAddress(d['client']), TradedPair(ERC20Token(b), ERC20Token(q)),
+                              d['px'], d['qty'], d['acc_qty'], d['hash'], d['is_sell_side'], OrderStatus(d['status']),
+                              OrderMatcherResult(d['matcher_result']))

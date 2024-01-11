@@ -4,10 +4,11 @@ Simple SDK of utilities and clients to interact  with LayerAkira exchange
 
 To interact with exchange user can use following clients:
 
-1) `HttpClient` -- to interact with http endpoints of exchange and smart contracts
-2) `WsClient` -- to subscribe for various streams of exchange
-3) `CLIClient` -- to interact with exchange in CLI-like fashion 
-
+1) `AsyncApiHttpClient` -- to interact with http endpoints of exchange
+2) `AkiraExchangeClient` -- to interact with layer akira smart-contract
+3) `WsClient` -- to subscribe for various websocket streams of layer akira
+4) `CLIClient` -- to interact with exchange in CLI-like fashion 
+5) `ERC20Client` -- to interact with erc20 contracts
 
 Executables folder contains runners for interaction with exchange:
 

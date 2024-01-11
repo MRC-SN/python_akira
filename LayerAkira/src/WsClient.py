@@ -11,7 +11,7 @@ import websockets
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
-from common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, OrderMatcherResult
+from LayerAkira.src.common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, OrderMatcherResult
 
 
 class Stream(str, Enum):
@@ -54,6 +54,8 @@ class WsClient:
         self._timeout = timeout
         self._idx = 0
         self._ws = None
+        self._running = False
+        self._terminated = False
 
     async def run_stream_listener(self, signer: ContractAddress, restart=False, cooldown_sec=5,
                                   **kwargs):
@@ -89,8 +91,10 @@ class WsClient:
                 logging.exception(f'Exception error different from connection closed error {e}')
             return
 
-        while True:
-            logging.info('Starting stream listener')
+        self._running = True
+        self._terminated = False
+        while self._running:
+            if self._verbose: logging.info('Starting stream listener')
             await job()
             self._ws = None
             for _, v in self._jobs.items():
@@ -103,6 +107,16 @@ class WsClient:
             if not restart: break
 
             await asyncio.sleep(cooldown_sec)
+        if self._verbose:
+            logging.info('Stream listener stopped')
+        self._terminated = True
+
+    async def stop_stream_listener(self) -> bool:
+        self._running = False
+        if self._ws is not None:
+            await self._ws.close()
+            return True
+        return self._terminated
 
     async def _handle_websocket_message(self, d: Dict):
         idx = d.get('id', None)

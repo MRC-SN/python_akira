@@ -9,17 +9,17 @@ from aioconsole import ainput
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 
-from AkiraExchangeClient import AkiraExchangeClient
-from AkiraFormatter import AkiraFormatter
-from Hasher import SnHasher
-from JointHttpClient import JointHttpClient
+from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
+from LayerAkira.src.AkiraFormatter import AkiraFormatter
+from LayerAkira.src.Hasher import SnHasher
+from LayerAkira.src.JointHttpClient import JointHttpClient
 from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.WsClient import WsClient, Stream
-from common.FeeTypes import GasFee
-from common.common import precise_to_price_convert
+from LayerAkira.src.common.FeeTypes import GasFee
+from LayerAkira.src.common.common import precise_to_price_convert
 
 
 def GAS_FEE_ACTION(gas: int, fix_steps):

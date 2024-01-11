@@ -21,8 +21,8 @@ from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert, random_int
 from LayerAkira.src.common.constants import ZERO_ADDRESS
-from common.Responses import ReducedOrderInfo, OrderInfo, Snapshot, UserInfo, BBO
-from common.common import Result
+from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, Snapshot, UserInfo, BBO
+from LayerAkira.src.common.common import Result
 
 
 class JointHttpClient:

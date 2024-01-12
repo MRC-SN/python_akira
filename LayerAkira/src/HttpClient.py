@@ -41,6 +41,9 @@ class AsyncApiHttpClient:
         self._order_serder = SimpleOrderSerializer(self._erc_to_addr)
         self._verbose = verbose
 
+    async def close(self):
+        await self._http.close()
+
     async def issue_jwt(self, signer: ContractAddress, pk: str) -> Result[str]:
         url = f'{self._http_host}/sign/request_sign_data?user={signer}'
         msg = await self._get_query(url)

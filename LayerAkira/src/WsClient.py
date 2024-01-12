@@ -53,7 +53,7 @@ class WsClient:
         self._subscribers: Dict[int, Callable[[Optional[Any]], Awaitable[None]]] = {}
         self._timeout = timeout
         self._idx = 0
-        self._ws = None
+        self.ws = None
         self._running = False
         self._terminated = False
 
@@ -80,7 +80,7 @@ class WsClient:
                 async with websockets.connect(uri=self._exchange_wss_host,
                                               extra_headers={'Authorization': listen_key, 'Signer': signer.as_str()},
                                               **kwargs) as ws:
-                    self._ws = ws
+                    self.ws = ws
                     if self._verbose: logging.info(f'Connected to {self._exchange_wss_host}')
                     async for message in ws:
                         if self._verbose: logging.info(f'Received exchange packet {message}')
@@ -96,7 +96,7 @@ class WsClient:
         while self._running:
             if self._verbose: logging.info('Starting stream listener')
             await job()
-            self._ws = None
+            self.ws = None
             for _, v in self._jobs.items():
                 v.event.set()
                 v.response = None
@@ -113,8 +113,8 @@ class WsClient:
 
     async def stop_stream_listener(self) -> bool:
         self._running = False
-        if self._ws is not None:
-            await self._ws.close()
+        if self.ws is not None:
+            await self.ws.close()
             return True
         return self._terminated
 
@@ -173,7 +173,7 @@ class WsClient:
         return await self._subscribe(cb, req, stream_id, self._idx)
 
     async def _subscribe(self, cb, req, stream_id: int, idx: int):
-        if self._ws is None:
+        if self.ws is None:
             return None
         if stream_id in self._jobs:
             logging.warning(f'Duplicate stream for request {req}, only one callback per stream')
@@ -183,7 +183,7 @@ class WsClient:
         self._subscribers[stream_id] = cb
         msg = json.dumps(req.request)
         if self._verbose: logging.info(f'Sending websocket request {msg}')
-        await self._ws.send(msg)
+        await self.ws.send(msg)
         try:
             await asyncio.wait_for(req.event.wait(), self._timeout)
         except exceptions.TimeoutError() as e:

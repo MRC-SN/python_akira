@@ -55,6 +55,7 @@ class OrderStatus(str, Enum):
     CLOSED = 'CLOSED'  # order was closed (in case of taker orders)
     FAILED_ROLLUP = 'FAILED_ROLLUP'  # part of order was failed due some issue, used in reports only
     REIMBURSE = 'REIMBURSE'  # part of order was failed due some issue, used in reports only
+    NOT_PROCESSED = 'NOT_PROCESSED'
 
 
 OrderMatcherResult = str

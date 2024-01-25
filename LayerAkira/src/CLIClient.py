@@ -279,6 +279,11 @@ class CLIClient:
         elif command.startswith('cancel_all'):
             return await client.cancel_order(trading_account, trading_account, None)
 
+        elif command.startswith('increase_nonce'):
+            return await client.increase_nonce(trading_account, trading_account, int(args[0]),
+                                               GAS_FEE_ACTION(client.gas_price, gas_fee_steps['nonce'][True]))
+
+
         elif command.startswith('withdraw'):
             erc = ERC20Token(args[0])
             amount = precise_to_price_convert(args[1], self._erc_to_decimals[erc])

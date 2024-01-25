@@ -340,6 +340,12 @@ class JointHttpClient:
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.cancel_order(pk, jwt, maker, order_hash)
 
+    async def increase_nonce(self, acc: ContractAddress, maker: ContractAddress, new_nonce: int, gas_fee: GasFee) -> \
+    Result[int]:
+        jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        return await self._api_client.increase_nonce(pk, jwt, maker, new_nonce, gas_fee)
+
     async def withdraw(self, acc: ContractAddress, maker: ContractAddress, token: ERC20Token, amount: int,
                        gas_fee: GasFee) -> Result[int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]

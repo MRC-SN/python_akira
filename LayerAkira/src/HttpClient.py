@@ -9,10 +9,11 @@ from LayerAkira.src.OrderSerializer import SimpleOrderSerializer
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode
+from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode, IncreaseNonce
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import random_int
-from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, FakeRouterData, UserInfo, BBO, \
+from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, FakeRouterData, \
+    UserInfo, BBO, \
     OrderStatus
 from LayerAkira.src.common.common import Result
 
@@ -98,6 +99,20 @@ class AsyncApiHttpClient:
             Table([TableLevel(x[0], x[1]) for x in levels['bids']], [TableLevel(x[0], x[1]) for x in levels['asks']]),
             levels['msg_id'])
         )
+
+    async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee):
+        req = IncreaseNonce(maker, new_nonce, gas_fee, random_int(), (0, 0))
+        req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
+        data = {'maker': req.maker.as_str(), 'sign': req.sign,
+                'new_nonce': new_nonce,
+                'salt': req.salt, 'gas_fee': {
+                'fee_token': self._erc_to_addr[gas_fee.fee_token].as_str(),
+                'max_gas_price': gas_fee.max_gas_price,
+                'conversion_rate': gas_fee.conversion_rate,
+                'gas_per_action': gas_fee.gas_per_action
+            }
+                }
+        return await self._post_query(f'{self._http_host}/increase_nonce', data, jwt)
 
     async def cancel_order(self, pk: str, jwt: str, maker: ContractAddress, order_hash: Optional[int]) -> Result[int]:
         """

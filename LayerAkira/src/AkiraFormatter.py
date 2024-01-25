@@ -52,7 +52,7 @@ class AkiraFormatter:
         return {
             'increase_nonce': {
                 'maker': increase_nonce.maker.as_int(),
-                'new_nonce': increase_nonce.maker,
+                'new_nonce': increase_nonce.new_nonce,
                 'gas_fee': self._prepare_gas_fee(increase_nonce.gas_fee),
                 'salt': increase_nonce.salt
             },

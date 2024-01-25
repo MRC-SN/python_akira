@@ -9,7 +9,7 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 
-from HttpClient import AsyncApiHttpClient
+from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
 from LayerAkira.src.AkiraFormatter import AkiraFormatter
 from LayerAkira.src.ERC20Client import ERC20Client
@@ -17,7 +17,7 @@ from LayerAkira.src.Hasher import SnHasher
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags
+from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert, random_int
 from LayerAkira.src.common.constants import ZERO_ADDRESS
@@ -41,6 +41,7 @@ class JointHttpClient:
                  token_to_decimals: Dict[ERC20Token, int],
                  chain=StarknetChainId.TESTNET,
                  gas_multiplier=1.25,
+                 exchange_version=0,
                  verbose=False):
         """
 
@@ -86,6 +87,7 @@ class JointHttpClient:
             lambda: UserInfo(0, defaultdict(lambda: (0, 0)), defaultdict(lambda: (0, 0))))
 
         self._verbose = verbose
+        self._exchange_version = exchange_version
 
     async def handle_new_keys(self, acc_addr: ContractAddress, pub: ContractAddress, priv: str):
         """
@@ -310,7 +312,8 @@ class JointHttpClient:
     async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
                           post_only: bool, full_fill: bool,
                           best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
-                          router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None) -> \
+                          router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
+                          stp: int = 0) -> \
             Result[int]:
         info = self._trading_acc_to_user_info[acc]
 
@@ -322,7 +325,8 @@ class JointHttpClient:
                                             FixedFee(ZERO_ADDRESS, 0, 0) if router_fee is None else router_fee,
                                             gas_fee), nonce=info.nonce,
                                         base_asset=10 ** self._token_to_decimals[ticker.base],
-                                        router_signer=router_signer if router_signer is not None else ZERO_ADDRESS
+                                        router_signer=router_signer if router_signer is not None else ZERO_ADDRESS,
+                                        stp=stp
                                         )
         if order.data is None:
             logging.warning(f'Failed to spawn order {order}')
@@ -349,10 +353,15 @@ class JointHttpClient:
     async def _spawn_order(self, acc: ContractAddress, **kwargs) -> Result[Order]:
         signer_pub_key = ContractAddress(self._address_to_account[acc].signer.public_key)
         pk = self._signer_key_to_pk[signer_pub_key]
+        cur_ts = int(datetime.datetime.now().timestamp())
+        year_seconds = 60 * 60 * 24 * 365
         order = Order(kwargs['maker'], kwargs['px'], kwargs['qty'],
                       kwargs['ticker'], kwargs['fee'], 2, random_int(), kwargs['nonce'],
                       kwargs['order_flags'], kwargs.get('router_signer', ZERO_ADDRESS),
-                      kwargs['base_asset'], (1, 1), (0, 0), int(datetime.datetime.now().timestamp()),
+                      kwargs['base_asset'], (1, 1), (0, 0), cur_ts,
+                      stp=STPMode(kwargs['stp']),
+                      expire_at=cur_ts + year_seconds,
+                      version=self._exchange_version
                       )
         if order.is_passive_order():
             order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0)

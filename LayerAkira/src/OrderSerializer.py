@@ -24,7 +24,7 @@ def serialize_gas_fee(gas_fee: GasFee, erc_to_addr: Dict[ERC20Token, ContractAdd
     }
 
 
-class SimpleOrderSerializer():
+class SimpleOrderSerializer:
     def __init__(self, erc20_to_addr: Dict[ERC20Token, ContractAddress]):
         self._erc20_to_addr = erc20_to_addr
 
@@ -54,5 +54,8 @@ class SimpleOrderSerializer():
             "salt": data.salt,
             "sign": data.sign,
             "router_sign": data.router_sign,
-            "nonce": data.nonce
+            "nonce": data.nonce,
+            'stp': data.stp.value,
+            'expire_at': data.expire_at,
+            'version': data.version
         }

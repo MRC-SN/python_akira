@@ -9,7 +9,7 @@ from LayerAkira.src.OrderSerializer import SimpleOrderSerializer
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags
+from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import random_int
 from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, FakeRouterData, UserInfo, BBO, \
@@ -197,7 +197,8 @@ class AsyncApiHttpClient:
                 d['limit_price'],
                 TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                            self._addr_to_erc[ContractAddress(d['ticker'][1])]),
-                OrderFlags(*[bool(x) for x in d['flags']])
+                OrderFlags(*[bool(x) for x in d['flags']]),
+                STPMode(d['stp']),
             )
         elif mode == 1:
             trade_fee, router_fee, gas_fee = d['fee']['trade_fee'], d['fee']['router_fee'], d['fee']['gas_fee']
@@ -225,7 +226,10 @@ class AsyncApiHttpClient:
                     d['base_asset'],
                     (0, 0),
                     (0, 0),
-                    d['created_at']
+                    d['created_at'],
+                    STPMode(d['stp']),
+                    d['expire_at'],
+                    d['version']
                 ),
                 d['limit_price'],
                 d['filled_amount'],

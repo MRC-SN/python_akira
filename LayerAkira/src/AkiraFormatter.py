@@ -2,7 +2,7 @@ from typing import Dict
 
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import FixedFee, GasFee
-from LayerAkira.src.common.Requests import Order, OrderFlags, IncreaseNonce,Withdraw
+from LayerAkira.src.common.Requests import Order, OrderFlags, IncreaseNonce, Withdraw
 from LayerAkira.src.common.ContractAddress import ContractAddress
 
 
@@ -20,7 +20,7 @@ class AkiraFormatter:
                 'amount': withdraw.amount,
                 'salt': withdraw.salt,
                 'gas_fee': self._prepare_gas_fee(withdraw.gas_fee),
-                'reciever': withdraw.receiver.as_int(),
+                'receiver': withdraw.receiver.as_int(),
             },
             'sign': (withdraw.sign[0], withdraw.sign[1])
         }
@@ -41,7 +41,10 @@ class AkiraFormatter:
                 'flags': self._prepare_order_flags(order.flags),
                 'router_signer': order.router_signer.as_int(),
                 'base_asset': order.base_asset,
-                'created_at': order.created_at
+                'created_at': order.created_at,
+                'stp': [order.stp.name, None],
+                'expire_at': order.expire_at,
+                'version': order.version
             }
         }
 

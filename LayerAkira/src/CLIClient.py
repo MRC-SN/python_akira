@@ -100,7 +100,8 @@ class CLIClient:
                                                self.cli_cfg.exchange_address, erc_to_addr,
                                                self._erc_to_decimals,
                                                self.cli_cfg.chain_id,
-                                               self.cli_cfg.gas_multiplier, self.cli_cfg.verbose)
+                                               self.cli_cfg.gas_multiplier, exchange_version=0,
+                                               verbose=self.cli_cfg.verbose)
 
         await self.exchange_client.init()
 
@@ -129,18 +130,19 @@ class CLIClient:
         presets_commands = [
             ['set_account', self.cli_cfg.trading_account],
             # ['bind_to_signer', []],  # binds trading account to public key, can be invoked onlu once for trading account
-            ['display_chain_info', []],  # print chain info
             ['r_auth', []],  # issue jwt token
+
+            ['display_chain_info', []],  # print chain info
             ['query_gas', []],  # query gas price
             ['user_info', []],  # query and safe in Client user info from exchange
-            ['start_ws', [self.cli_cfg.trading_account[1]]],
-            ['sleep', []],
-            ['subscribe_book', ['trade', 'ETH', 'USDC', '1']],
-            ['subscribe_book', ['bbo', 'ETH', 'USDC', '1']],
-            ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
-            ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
-
-            # ['approve_exchange', ['ETH', '1000']],
+            # ['start_ws', [self.cli_cfg.trading_account[1]]],
+            # ['sleep', []],
+            # ['subscribe_book', ['trade', 'ETH', 'USDC', '1']],
+            # ['subscribe_book', ['bbo', 'ETH', 'USDC', '1']],
+            # ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
+            # ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
+            #
+            # # ['approve_exchange', ['ETH', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
             # ['deposit', ['ETH', '0.0000000001']],
             # ['deposit', ['USDC', '50']],
@@ -151,14 +153,14 @@ class CLIClient:
             # ['get_book', ['ETH/USDC', '1']],
             #
             # ['get_order', ['42']],
-            ['get_orders', ['1', '20', '0']],
-            #
-            # ['withdraw', ['USDC', '4']],
-            ['place_order', ['ETH/USDC', '1945', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE']],
-            ['place_order', ['ETH/USDC', '1944', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE']],
-            ['place_order', ['ETH/USDC', '1945', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE']],
-            ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE']],
-            ['place_order', ['ETH/USDC', '1940', '0.00000041', 'SELL', 'MARKET', '0', '0', '0', 'SAFE']],
+            # ['get_orders', ['1', '20', '0']],
+            # #
+            # # ['withdraw', ['USDC', '4']],
+            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
+            # ['place_order', ['ETH/USDC', '1944', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
+            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
+            # ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
+            # ['place_order', ['ETH/USDC', '1940', '0.00000041', 'SELL', 'MARKET', '0', '0', '0', 'SAFE', 0]],
             # ['cancel_order', ['345345']],
             # ['cancel_all', []]
             #     'withdraw 0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F USDC 25'
@@ -257,7 +259,7 @@ class CLIClient:
             return await client.get_snapshot(trading_account, b, q, is_safe_book)
 
         elif command.startswith('place_order'):
-            ticker, px, qty, side, type, post_only, full_fill, best_lvl, safe = args
+            ticker, px, qty, side, type, post_only, full_fill, best_lvl, safe, stp = args
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
             safe = safe == 'SAFE'
@@ -267,7 +269,8 @@ class CLIClient:
             return await client.place_order(trading_account, TradedPair(base, quote),
                                             px, qty, side, type, bool(int(post_only)), bool(int(full_fill)),
                                             bool(int(best_lvl)), safe, trading_account,
-                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe])
+                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe]),
+                                            stp=int(stp)
                                             )
 
         elif command.startswith('cancel_order'):

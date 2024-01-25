@@ -4,7 +4,7 @@ from typing import Dict, Tuple, List, Optional
 
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.Requests import OrderFlags, Order
+from LayerAkira.src.common.Requests import OrderFlags, Order, STPMode
 from LayerAkira.src.common.TradedPair import TradedPair
 
 
@@ -56,6 +56,7 @@ class OrderStatus(str, Enum):
     FAILED_ROLLUP = 'FAILED_ROLLUP'  # part of order was failed due some issue, used in reports only
     REIMBURSE = 'REIMBURSE'  # part of order was failed due some issue, used in reports only
     NOT_PROCESSED = 'NOT_PROCESSED'
+    EXPIRED = 'EXPIRED'  # order expired
 
 
 OrderMatcherResult = str
@@ -79,6 +80,7 @@ class ReducedOrderInfo:
     limit_price: Optional[int]
     ticker: TradedPair
     order_flags: OrderFlags
+    stp: STPMode
 
 
 @dataclass
@@ -92,6 +94,7 @@ class ExecReport:
     is_sell_side: bool
     status: OrderStatus
     mather_result: OrderMatcherResult
+
 
 
 @dataclass

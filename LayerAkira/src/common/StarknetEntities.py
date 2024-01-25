@@ -9,13 +9,6 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.transaction_errors import TransactionFailedError
 
 
-@dataclass
-class StarknetAccount:
-    account: str
-    pub_key: Optional[str] = None
-    private_key: Optional[str] = None
-
-
 class StarknetSmartContract:
     def __init__(self, contract: Contract):
         self.contract = contract

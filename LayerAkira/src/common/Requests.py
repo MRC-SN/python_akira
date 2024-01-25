@@ -32,6 +32,17 @@ class OrderFlags:
         return self.full_fill_only, self.best_level_only, self.post_only, self.is_sell_side, self.is_market_order, self.to_safe_book
 
 
+class STPMode(int, Enum):
+    """
+    Self trade prevention mode
+    STP mode, if NONE process as usual
+    """
+    NONE = 0
+    EXPIRE_TAKER = 1
+    EXPIRE_MAKER = 2
+    EXPIRE_BOTH = 3
+
+
 class OrderType(Enum):
     LIMIT = 0
     MARKET = 1
@@ -56,6 +67,9 @@ class Order:
     sign: Tuple[int, int]
     router_sign: Tuple[int, int]
     created_at: OrderTimestamp
+    stp: STPMode
+    expire_at: OrderTimestamp
+    version: int
 
     def __post_init__(self):
         assert isinstance(self.maker, ContractAddress)

@@ -14,6 +14,7 @@ from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
 from LayerAkira.src.AkiraFormatter import AkiraFormatter
 from LayerAkira.src.ERC20Client import ERC20Client
 from LayerAkira.src.Hasher import SnHasher
+from LayerAkira.src.RouterHTTPClient import RouterAsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
@@ -35,6 +36,7 @@ class JointHttpClient:
 
     def __init__(self, node_client: FullNodeClient,
                  api_http_client: AsyncApiHttpClient,
+                 router_api_http_client: RouterAsyncApiHttpClient,
                  akira_exchange_client: AkiraExchangeClient,
                  exchange_addr: ContractAddress,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
@@ -58,6 +60,8 @@ class JointHttpClient:
         self.gas_price, self.fee_recipient = 0, ZERO_ADDRESS
 
         self._api_client = api_http_client
+
+        self._router_api_client = router_api_http_client
 
         self.akira = akira_exchange_client
 
@@ -309,12 +313,12 @@ class JointHttpClient:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.get_snapshot(jwt, base, quote, safe_book)
 
-    async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
-                          post_only: bool, full_fill: bool,
-                          best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
-                          router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
-                          stp: int = 0) -> \
-            Result[int]:
+    async def _construct_order(self,
+                           acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
+                           post_only: bool, full_fill: bool,
+                           best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
+                           router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
+                           stp: int = 0) -> Result[Order]:
         info = self._trading_acc_to_user_info[acc]
 
         order_flags = OrderFlags(full_fill, best_lvl, post_only, side == 'SELL', type == 'MARKET', safe)
@@ -328,11 +332,39 @@ class JointHttpClient:
                                         router_signer=router_signer if router_signer is not None else ZERO_ADDRESS,
                                         stp=stp
                                         )
+        return order
+
+    async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
+                          post_only: bool, full_fill: bool,
+                          best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
+                          router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
+                          stp: int = 0) -> \
+            Result[int]:
+        order = await self._construct_order(acc, ticker, px, qty, side, type, post_only, full_fill, best_lvl,
+                                      safe, maker, gas_fee, router_fee, router_signer, stp)
         if order.data is None:
             logging.warning(f'Failed to spawn order {order}')
             return order
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.place_order(jwt, order.data)
+
+    async def router_place_order(
+            self, acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
+            post_only: bool, full_fill: bool,
+            best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
+            router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
+            stp: int = 0
+            ) -> \
+            Result[int]:
+        order = await self._construct_order(
+            acc, ticker, px, qty, side, type, post_only, full_fill, best_lvl,
+            safe, maker, gas_fee, router_fee, router_signer, stp
+            )
+        if order.data is None:
+            logging.warning(f'Failed to spawn order {order}')
+            return order
+        jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        return await self._router_api_client.place_order(jwt, order.data)
 
     async def cancel_order(self, acc: ContractAddress, maker: ContractAddress, order_hash: Optional[int]) -> Result[
         int]:

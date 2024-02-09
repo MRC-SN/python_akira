@@ -273,6 +273,21 @@ class CLIClient:
                                             stp=int(stp)
                                             )
 
+        elif command.startswith('router_place_order'):
+            ticker, px, qty, side, type, post_only, full_fill, best_lvl, safe, stp = args
+            base, quote = ticker.split('/')
+            base, quote = ERC20Token(base), ERC20Token(quote)
+            safe = safe == 'SAFE'
+            px = precise_to_price_convert(px, self._erc_to_decimals[quote])
+            qty = precise_to_price_convert(qty, self._erc_to_decimals[base])
+
+            return await client.router_place_order(trading_account, TradedPair(base, quote),
+                                            px, qty, side, type, bool(int(post_only)), bool(int(full_fill)),
+                                            bool(int(best_lvl)), safe, trading_account,
+                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe]),
+                                            stp=int(stp)
+                                            )
+
         elif command.startswith('cancel_order'):
             return await client.cancel_order(trading_account, trading_account, int(args[0]))
 

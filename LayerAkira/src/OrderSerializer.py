@@ -32,16 +32,28 @@ class SimpleOrderSerializer:
         return {
             'maker': data.maker.as_str(),
             'price': data.price,
-            'quantity': data.quantity,
-            'base_asset': data.base_asset,
-            "created_at": data.created_at,
+            'qty': {
+                'base_qty': data.qty.base_qty,
+                'quote_qty': data.qty.quote_qty,
+                'base_asset': data.qty.base_asset,
+            },
+            'constraints': {
+                "created_at": data.constraints.created_at,
+                'router_signer': data.constraints.router_signer.as_str(),
+                "number_of_swaps_allowed": data.constraints.number_of_swaps_allowed,
+                "nonce": data.constraints.nonce,
+                'stp': data.constraints.stp.value,
+                'duration_valid': data.constraints.duration_valid,
+                'min_receive_amount': data.constraints.min_receive_amount
+            },
             'flags': {
-                "full_fill_only": data.full_fill_only,
-                "best_level_only": data.best_level_only,
-                "post_only": data.post_only,
-                "to_safe_book": data.to_safe_book,
-                'is_sell_side': bool(data.side.value),
-                "is_market_order": bool(data.type.value),
+                "full_fill_only": data.flags.full_fill_only,
+                "best_level_only": data.flags.best_level_only,
+                "post_only": data.flags.post_only,
+                "to_ecosystem_book": data.flags.to_ecosystem_book,
+                'is_sell_side': data.flags.is_sell_side,
+                "is_market_order": data.flags.is_market_order,
+                'external_funds': data.flags.external_funds
             },
             "ticker": (self._erc20_to_addr[data.ticker.base].as_str(), self._erc20_to_addr[data.ticker.quote].as_str()),
             "fee": {
@@ -49,13 +61,8 @@ class SimpleOrderSerializer:
                 'router_fee': serialize_fixed_fee(data.fee.router_fee)[1],
                 'gas_fee': serialize_gas_fee(data.fee.gas_fee, self._erc20_to_addr)[1],
             },
-            'router_signer': data.router_signer.as_str(),
-            "number_of_swaps_allowed": data.number_of_swaps_allowed,
             "salt": data.salt,
             "sign": data.sign,
             "router_sign": data.router_sign,
-            "nonce": data.nonce,
-            'stp': data.stp.value,
-            'expire_at': data.expire_at,
-            'version': data.version
+            'version': data.version,
         }

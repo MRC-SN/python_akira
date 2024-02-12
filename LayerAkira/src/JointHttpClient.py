@@ -17,7 +17,7 @@ from LayerAkira.src.Hasher import SnHasher
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode
+from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode, Quantity, Constraints
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert, random_int
 from LayerAkira.src.common.constants import ZERO_ADDRESS
@@ -301,32 +301,35 @@ class JointHttpClient:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.get_orders(acc, jwt, mode, limit, offset)
 
-    async def get_bbo(self, acc, base: ERC20Token, quote: ERC20Token, safe_book: bool) -> Result[BBO]:
+    async def get_bbo(self, acc, base: ERC20Token, quote: ERC20Token, ecosystem_book: bool) -> Result[BBO]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
-        return await self._api_client.get_bbo(jwt, base, quote, safe_book)
+        return await self._api_client.get_bbo(jwt, base, quote, ecosystem_book)
 
-    async def get_snapshot(self, acc, base: ERC20Token, quote: ERC20Token, safe_book: bool) -> Result[Snapshot]:
+    async def get_snapshot(self, acc, base: ERC20Token, quote: ERC20Token, ecosystem_book: bool) -> Result[Snapshot]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
-        return await self._api_client.get_snapshot(jwt, base, quote, safe_book)
+        return await self._api_client.get_snapshot(jwt, base, quote, ecosystem_book)
 
-    async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: int, qty: int, side: str, type: str,
+    async def place_order(self, acc: ContractAddress, ticker: TradedPair, px: int, qty_base: int, qty_quote: int,
+                          side: str, type: str,
                           post_only: bool, full_fill: bool,
-                          best_lvl: bool, safe: bool, maker: ContractAddress, gas_fee: GasFee,
+                          best_lvl: bool, ecosystem: bool, maker: ContractAddress, gas_fee: GasFee,
                           router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
-                          stp: int = 0) -> \
+                          stp: int = 0, external_funds=False, min_receive_amount=0) -> \
             Result[int]:
         info = self._trading_acc_to_user_info[acc]
 
-        order_flags = OrderFlags(full_fill, best_lvl, post_only, side == 'SELL', type == 'MARKET', safe)
+        order_flags = OrderFlags(full_fill, best_lvl, post_only, side == 'SELL', type == 'MARKET', ecosystem,
+                                 external_funds=external_funds)
 
-        order = await self._spawn_order(acc, px=px, qty=qty, maker=maker, order_flags=order_flags, ticker=ticker,
+        order = await self._spawn_order(acc, px=px, qty_base=qty_base, qty_quote=qty_quote, maker=maker,
+                                        order_flags=order_flags, ticker=ticker,
                                         fee=OrderFee(
                                             FixedFee(self.fee_recipient, *info.fees[ticker]),
                                             FixedFee(ZERO_ADDRESS, 0, 0) if router_fee is None else router_fee,
                                             gas_fee), nonce=info.nonce,
                                         base_asset=10 ** self._token_to_decimals[ticker.base],
                                         router_signer=router_signer if router_signer is not None else ZERO_ADDRESS,
-                                        stp=stp
+                                        stp=stp, min_receive_amount=min_receive_amount
                                         )
         if order.data is None:
             logging.warning(f'Failed to spawn order {order}')
@@ -341,7 +344,7 @@ class JointHttpClient:
         return await self._api_client.cancel_order(pk, jwt, maker, order_hash)
 
     async def increase_nonce(self, acc: ContractAddress, maker: ContractAddress, new_nonce: int, gas_fee: GasFee) -> \
-    Result[int]:
+            Result[int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.increase_nonce(pk, jwt, maker, new_nonce, gas_fee)
@@ -361,20 +364,23 @@ class JointHttpClient:
         pk = self._signer_key_to_pk[signer_pub_key]
         cur_ts = int(datetime.datetime.now().timestamp())
         year_seconds = 60 * 60 * 24 * 365
-        order = Order(kwargs['maker'], kwargs['px'], kwargs['qty'],
-                      kwargs['ticker'], kwargs['fee'], 2, random_int(), kwargs['nonce'],
-                      kwargs['order_flags'], kwargs.get('router_signer', ZERO_ADDRESS),
-                      kwargs['base_asset'], (1, 1), (0, 0), cur_ts,
-                      stp=STPMode(kwargs['stp']),
-                      expire_at=cur_ts + year_seconds,
-                      version=self._exchange_version
+        order = Order(kwargs['maker'], kwargs['px'],
+                      Quantity(kwargs['qty_base'], kwargs['qty_quote'], kwargs['base_asset']),
+                      kwargs['ticker'], kwargs['fee'],
+                      Constraints(
+                          2, year_seconds, cur_ts, STPMode(kwargs['stp']), kwargs['nonce'],
+                          kwargs['min_receive_amount'], kwargs.get('router_signer', ZERO_ADDRESS),
+                      ),
+                      random_int(),
+                      kwargs['order_flags'],
+                      (1, 1), (0, 0), self._exchange_version
                       )
         if order.is_passive_order():
             order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0)
             order.router_signer = ZERO_ADDRESS
 
-        # unsafe taker through router, if not explicitly specified
-        if not order.flags.to_safe_book and not order.is_passive_order() and order.router_signer == ZERO_ADDRESS:
+        # router taker through router, if not explicitly specified
+        if not order.flags.to_ecosystem_book and not order.is_passive_order() and order.router_signer == ZERO_ADDRESS and order.flags.external_funds:
             jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
             result = await self._api_client.query_fake_router_data(jwt, order)
             if result.data is None: return result
@@ -383,7 +389,7 @@ class JointHttpClient:
             order.fee.router_fee.recipient = result.data.fee_recipient
             order.fee.router_fee.taker_pbips = result.data.max_taker_pbips
             order.fee.router_fee.maker_pbips = result.data.maker_pbips
-            order.router_signer = result.data.router_signer
+            order.constraints.router_signer = result.data.router_signer
             order.router_sign = result.data.router_signature
 
         order_hash = self._hasher.hash(order)

@@ -70,17 +70,24 @@ class Snapshot:
 
 
 @dataclass
+class OrderStateInfo:
+    filled_base_amount: int
+    filled_quote_amount: int
+    cur_number_of_swaps: int
+    status: OrderStatus
+    limit_price: Optional[int]
+
+
+@dataclass
 class ReducedOrderInfo:
     maker: ContractAddress
     hash: int
-    filled_amount: int
-    status: OrderStatus
-    quantity: int
+    state: OrderStateInfo
     price: int
-    limit_price: Optional[int]
     ticker: TradedPair
     order_flags: OrderFlags
     stp: STPMode
+    expiration_time: int
 
 
 @dataclass
@@ -88,7 +95,7 @@ class ExecReport:
     client: ContractAddress
     pair: TradedPair
     price: int
-    quantity: int
+    base_qty: int
     acc_qty: int
     order_hash: int
     is_sell_side: bool
@@ -96,13 +103,10 @@ class ExecReport:
     mather_result: OrderMatcherResult
 
 
-
 @dataclass
 class OrderInfo:
     order: Order
-    limit_price: int
-    filled_amount: int
-    status: OrderStatus
+    state: OrderStateInfo
 
 
 @dataclass
@@ -116,6 +120,6 @@ class BBO:
 @dataclass
 class Trade:
     price: int
-    quantity: int
+    base_qty: int
     is_sell_side: bool
     time: int

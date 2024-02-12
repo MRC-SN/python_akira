@@ -29,7 +29,9 @@ class AkiraFormatter:
         return {
             'sign': tuple(order.sign), 'router_sign': tuple(order.router_sign),
             'order': {
-                'maker': order.maker.as_int(), 'price': order.price, 'quantity': order.quantity,
+                'maker': order.maker.as_int(), 'price': order.price,
+                'qty': {'base_qty': order.qty.base_qty, 'quote_qty': order.qty.quote_qty,
+                        'base_asset': order.qty.base_asset},
                 'ticker': (
                     self._erc_to_addr[order.ticker.base].as_int(), self._erc_to_addr[order.ticker.quote].as_int()),
                 'fee': {
@@ -37,14 +39,18 @@ class AkiraFormatter:
                     'router_fee': self._prepare_fixed_fee(order.fee.router_fee),
                     'gas_fee': self._prepare_gas_fee(order.fee.gas_fee),
                 },
-                'number_of_swaps_allowed': order.number_of_swaps_allowed, 'salt': order.salt, 'nonce': order.nonce,
+                'salt': order.salt,
+                'constraints': {
+                    'number_of_swaps_allowed': order.constraints.number_of_swaps_allowed,
+                    'nonce': order.constraints.nonce,
+                    'router_signer': order.constraints.router_signer.as_int(),
+                    'created_at': order.constraints.created_at,
+                    'duration_valid': order.constraints.duration_valid,
+                    'stp': [order.constraints.stp.name, None],
+                    'min_receive_amount': order.constraints.min_receive_amount
+                },
                 'flags': self._prepare_order_flags(order.flags),
-                'router_signer': order.router_signer.as_int(),
-                'base_asset': order.base_asset,
-                'created_at': order.created_at,
-                'stp': [order.stp.name, None],
-                'expire_at': order.expire_at,
-                'version': order.version
+                'version': order.version,
             }
         }
 
@@ -82,5 +88,6 @@ class AkiraFormatter:
             "post_only": flags.post_only,
             "is_sell_side": flags.is_sell_side,
             "is_market_order": flags.is_market_order,
-            "to_safe_book": flags.to_safe_book
+            "to_ecosystem_book": flags.to_ecosystem_book,
+            "external_funds": flags.external_funds
         }

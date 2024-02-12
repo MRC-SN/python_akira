@@ -58,7 +58,7 @@ def parse_cli_cfg(file_path: str):
     steps = {}
     for d in data['gas_action']:
         if d['action'] not in steps: steps[d['action']] = {}
-        steps[d['action']][d['safe']] = d['steps']
+        steps[d['action']][d['ecosystem']] = d['steps']
     acc = ContractAddress(data['trading_account']['account_address'])
     pub = ContractAddress(data['trading_account']['public_key'])
     pk = data['trading_account']['private_key']
@@ -134,13 +134,13 @@ class CLIClient:
 
             ['display_chain_info', []],  # print chain info
             ['query_gas', []],  # query gas price
-            ['user_info', []],  # query and safe in Client user info from exchange
-            # ['start_ws', [self.cli_cfg.trading_account[1]]],
-            # ['sleep', []],
-            # ['subscribe_book', ['trade', 'ETH', 'USDC', '1']],
-            # ['subscribe_book', ['bbo', 'ETH', 'USDC', '1']],
-            # ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
-            # ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
+            ['user_info', []],  # query and ecosystem in Client user info from exchange
+            ['start_ws', [self.cli_cfg.trading_account[1]]],
+            ['sleep', []],
+            ['subscribe_book', ['trade', 'ETH', 'USDC', '1']],
+            ['subscribe_book', ['bbo', 'ETH', 'USDC', '1']],
+            ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
+            ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
             #
             # # ['approve_exchange', ['ETH', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
@@ -149,23 +149,23 @@ class CLIClient:
             # ['request_withdraw_on_chain', ['USDC', '10']],
             # ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
             #
-            # ['get_bbo', ['ETH/USDC', '1']],
+            ['get_bbo', ['ETH/USDC', '1']],
             # ['get_book', ['ETH/USDC', '1']],
             #
             # ['get_order', ['42']],
             # ['get_orders', ['1', '20', '0']],
             # #
             # # ['withdraw', ['USDC', '4']],
-            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
-            # ['place_order', ['ETH/USDC', '1944', '0.00000011', 'BUY', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
-            # ['place_order', ['ETH/USDC', '1945', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
-            # ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'SAFE', 0]],
-            # ['place_order', ['ETH/USDC', '1940', '0.00000041', 'SELL', 'MARKET', '0', '0', '0', 'SAFE', 0]],
+            # ['place_order', ['ETH/USDC', '1945', '0.0000006','0', 'BUY', 'MARKET', '1', '0', '0', 'ECOSYSTEM', 0, 'EXTERNAL', 0]],
+            # ['place_order', ['ETH/USDC', '1944', '0.00000011','0', 'BUY', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
+            # ['place_order', ['ETH/USDC', '1945', '0.00000011', '0','SELL', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
+            # ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
+            # ['place_order', ['ETH/USDC', '1940', '0.0000007', 'SELL', 'MARKET', '0', '0', '0', 'ECOSYSTEM', 0]],
             # ['cancel_order', ['345345']],
             # ['cancel_all', []]
             #     'withdraw 0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F USDC 25'
         ]
-        # place_order ETH/USDC 1945 0.00000005 BUY LIMIT 1 0 0  SAFE
+        # place_order ETH/USDC 1945 0.00000005 BUY LIMIT 1 0 0  ECOSYSTEM
 
         for command, args in presets_commands:
             try:
@@ -250,27 +250,33 @@ class CLIClient:
 
         elif command.startswith('get_bbo'):
             b, q = args[0].split('/')
-            b, q, is_safe_book = ERC20Token(b), ERC20Token(q), bool(int(args[1]))
-            return await client.get_bbo(trading_account, b, q, is_safe_book)
+            b, q, is_ecosystem_book = ERC20Token(b), ERC20Token(q), bool(int(args[1]))
+            return await client.get_bbo(trading_account, b, q, is_ecosystem_book)
 
         elif command.startswith('get_book'):
             b, q = args[0].split('/')
-            b, q, is_safe_book = ERC20Token(b), ERC20Token(q), bool(int(args[1]))
-            return await client.get_snapshot(trading_account, b, q, is_safe_book)
+            b, q, is_ecosystem_book = ERC20Token(b), ERC20Token(q), bool(int(args[1]))
+            return await client.get_snapshot(trading_account, b, q, is_ecosystem_book)
 
         elif command.startswith('place_order'):
-            ticker, px, qty, side, type, post_only, full_fill, best_lvl, safe, stp = args
+            ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount = args
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
-            safe = safe == 'SAFE'
+            ecosystem = ecosystem == 'ECOSYSTEM'
+            external = external == 'EXTERNAL'
             px = precise_to_price_convert(px, self._erc_to_decimals[quote])
-            qty = precise_to_price_convert(qty, self._erc_to_decimals[base])
+            qty_base = precise_to_price_convert(qty_base, self._erc_to_decimals[base])
+            qty_quote = precise_to_price_convert(qty_quote, self._erc_to_decimals[quote])
+            min_receive_amount = precise_to_price_convert(min_receive_amount,
+                                                          self._erc_to_decimals[base] if side == 'BUY'
+                                                          else self._erc_to_decimals[quote])
 
             return await client.place_order(trading_account, TradedPair(base, quote),
-                                            px, qty, side, type, bool(int(post_only)), bool(int(full_fill)),
-                                            bool(int(best_lvl)), safe, trading_account,
-                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][safe]),
-                                            stp=int(stp)
+                                            px, qty_base, qty_quote, side, type, bool(int(post_only)),
+                                            bool(int(full_fill)),
+                                            bool(int(best_lvl)), ecosystem, trading_account,
+                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][ecosystem]),
+                                            stp=int(stp), external_funds=external, min_receive_amount=min_receive_amount
                                             )
 
         elif command.startswith('cancel_order'):
@@ -294,3 +300,4 @@ class CLIClient:
             return await client.query_listen_key(trading_account)
         else:
             print(f'Unknown command {command} with args {args}')
+

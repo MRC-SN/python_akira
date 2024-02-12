@@ -9,12 +9,13 @@ from LayerAkira.src.OrderSerializer import SimpleOrderSerializer
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode, IncreaseNonce
+from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode, IncreaseNonce, Quantity, \
+    Constraints
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import random_int
 from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, FakeRouterData, \
     UserInfo, BBO, \
-    OrderStatus
+    OrderStatus, OrderStateInfo
 from LayerAkira.src.common.common import Result
 
 
@@ -79,9 +80,9 @@ class AsyncApiHttpClient:
         if resp.data is None: return resp
         return Result([self._parse_order_response(x, mode) for x in resp.data])
 
-    async def get_bbo(self, jwt: str, base: ERC20Token, quote: ERC20Token, safe_book: bool) -> Result[BBO]:
+    async def get_bbo(self, jwt: str, base: ERC20Token, quote: ERC20Token, ecosystem_book: bool) -> Result[BBO]:
         url = f'{self._http_host}/book/bbo?base={self._erc_to_addr[base]}' \
-              f'&quote={self._erc_to_addr[quote]}&to_safe_book={int(safe_book)}'
+              f'&quote={self._erc_to_addr[quote]}&to_ecosystem_book={int(ecosystem_book)}'
         resp = await self._get_query(url, jwt)
         if resp.data is None: return resp
 
@@ -89,9 +90,10 @@ class AsyncApiHttpClient:
 
         return Result(BBO(retrieve_lvl(resp.data['bid']), retrieve_lvl(resp.data['ask']), 0))
 
-    async def get_snapshot(self, jwt: str, base: ERC20Token, quote: ERC20Token, safe_book: bool) -> Result[Snapshot]:
+    async def get_snapshot(self, jwt: str, base: ERC20Token, quote: ERC20Token, ecosystem_book: bool) -> Result[
+        Snapshot]:
         url = f'{self._http_host}/book/snapshot?base={self._erc_to_addr[base]}' \
-              f'&quote={self._erc_to_addr[quote]}&to_safe_book={int(safe_book)}'
+              f'&quote={self._erc_to_addr[quote]}&to_ecosystem_book={int(ecosystem_book)}'
         resp = await self._get_query(url, jwt)
         if resp.data is None: return resp
         levels = resp.data['levels']
@@ -162,7 +164,7 @@ class AsyncApiHttpClient:
             1) user sending unsigned order, fake router sign it and return FakeRouterData
             2) user fill order with this data and sign this order and place order to exchange
         """
-        res = await self._post_query(f'{self._http_host}/unsafe_sign', self._order_serder.serialize(order), jwt)
+        res = await self._post_query(f'{self._http_host}/router_sign', self._order_serder.serialize(order), jwt)
         if res.data is None: return res
         return Result(FakeRouterData(res.data['taker_pbips'], ContractAddress(res.data['fee_recipient']),
                                      res.data['max_taker_pbips'], ContractAddress(res.data['router_signer']),
@@ -201,19 +203,24 @@ class AsyncApiHttpClient:
         return Result(None, resp['code'], resp['error'])
 
     def _parse_order_response(self, d: Dict, mode):
+        state_info = OrderStateInfo(
+            d['state']['filled_base_amount'],
+            d['state']['filled_quote_amount'],
+            d['state']['cur_number_of_swaps'],
+            OrderStatus(d['state']['status']),
+            d['state']['limit_price']
+        )
         if mode == 2:
             return ReducedOrderInfo(
                 ContractAddress(d['maker']),
                 d['hash'],
-                d['filled_amount'],
-                OrderStatus(d['status']),
-                d['quantity'],
+                state_info,
                 d['price'],
-                d['limit_price'],
                 TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                            self._addr_to_erc[ContractAddress(d['ticker'][1])]),
                 OrderFlags(*[bool(x) for x in d['flags']]),
                 STPMode(d['stp']),
+                d['expiration_time']
             )
         elif mode == 1:
             trade_fee, router_fee, gas_fee = d['fee']['trade_fee'], d['fee']['router_fee'], d['fee']['gas_fee']
@@ -221,7 +228,7 @@ class AsyncApiHttpClient:
                 Order(
                     ContractAddress(d['maker']),
                     d['price'],
-                    d['quantity'],
+                    Quantity(d['qty']['base_qty'], d['qty']['quote_qty'], d['qty']['base_asset']),
                     TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                                self._addr_to_erc[ContractAddress(d['ticker'][1])]),
                     OrderFee(
@@ -233,20 +240,20 @@ class AsyncApiHttpClient:
                                gas_fee['max_gas_price'],
                                tuple(gas_fee['conversion_rate']))
                     ),
-                    d['number_of_swaps_allowed'],
+                    Constraints(
+                        d['constraints']['number_of_swaps_allowed'],
+                        d['constraints']['duration_valid'],
+                        d['constraints']['created_at'],
+                        STPMode(d['constraints']['stp']),
+                        d['constraints']['nonce'],
+                        d['constraints']['min_receive_amount'],
+                        ContractAddress(d['constraints']['router_signer']),
+                    ),
                     d['salt'],
-                    d['nonce'],
                     OrderFlags(*[bool(x) for x in d['flags']]),
-                    ContractAddress(d['router_signer']),
-                    d['base_asset'],
                     (0, 0),
                     (0, 0),
-                    d['created_at'],
-                    STPMode(d['stp']),
-                    d['expire_at'],
                     d['version']
                 ),
-                d['limit_price'],
-                d['filled_amount'],
-                OrderStatus(d['status'])
+                state_info
             )

@@ -20,16 +20,17 @@ class Side(Enum):
 
 @dataclass
 class OrderFlags:
-    __slots__ = ('full_fill_only', 'best_level_only', 'post_only', 'is_sell_side', 'is_market_order', 'to_safe_book')
     full_fill_only: bool
     best_level_only: bool
     post_only: bool
     is_sell_side: bool
     is_market_order: bool
-    to_safe_book: bool
+    to_ecosystem_book: bool
+    external_funds: bool
 
     def as_tuple(self):
-        return self.full_fill_only, self.best_level_only, self.post_only, self.is_sell_side, self.is_market_order, self.to_safe_book
+        return (self.full_fill_only, self.best_level_only, self.post_only, self.is_sell_side, self.is_market_order,
+                self.to_ecosystem_book, self.external_funds)
 
 
 class STPMode(int, Enum):
@@ -52,28 +53,40 @@ class OrderType(Enum):
 
 
 @dataclass
+class Quantity:
+    base_qty: int  # quantity in base asset raw amount
+    quote_qty: int  # quantity in quote asset raw amount
+    base_asset: int  # raw amount of base asset representing 1, eg 1 eth is 10**18
+
+
+@dataclass
+class Constraints:
+    number_of_swaps_allowed: int
+    duration_valid: int
+    created_at: int
+    stp: STPMode
+    nonce: int
+    min_receive_amount: int
+    router_signer: ContractAddress
+
+
+@dataclass
 class Order:
     maker: ContractAddress
     price: int
-    quantity: int
+    qty: Quantity
     ticker: TradedPair
     fee: OrderFee
-    number_of_swaps_allowed: int
+    constraints:Constraints
     salt: int
-    nonce: int
     flags: OrderFlags
-    router_signer: ContractAddress
-    base_asset: int
     sign: Tuple[int, int]
     router_sign: Tuple[int, int]
-    created_at: OrderTimestamp
-    stp: STPMode
-    expire_at: OrderTimestamp
     version: int
 
     def __post_init__(self):
         assert isinstance(self.maker, ContractAddress)
-        assert isinstance(self.router_signer, ContractAddress)
+        assert isinstance(self.constraints.router_signer, ContractAddress)
 
     def is_passive_order(self):
         return not self.type == OrderType.MARKET and self.post_only
@@ -100,18 +113,18 @@ class Order:
         return self.flags.post_only
 
     @property
-    def to_safe_book(self):
-        return self.flags.to_safe_book
+    def to_ecosystem_book(self):
+        return self.flags.to_ecosystem_book
 
-    def is_safe_order(self):
+    def is_ecosystem_order(self):
         return self.router_sign[0] == 0 and self.router_sign[1] == 0
 
     def __str__(self):
         fields = [
             f"price={self.price.__str__()}",
-            f"quantity={self.quantity.__str__()}",
+            f"qty={self.qty}",
             f"maker={self.maker}",
-            f"created_at={self.created_at}",
+            f"constraints={self.constraints}",
             f"flags={self.flags}",
             f"side={self.side.value}",
             f"ticker={self.ticker}",
@@ -119,8 +132,7 @@ class Order:
             f"salt={self.salt}",
             f"sign={self.sign}",
             f'router_sign={self.sign},'
-            f'nonce={self.nonce}',
-            f'to_safe={self.to_safe_book}',
+            f'to_ecosystem={self.to_ecosystem_book}',
             f'order_fee={self.fee}'
         ]
         return f"Order({', '.join(fields)})\n"

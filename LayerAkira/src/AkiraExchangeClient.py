@@ -20,9 +20,11 @@ T = TypeVar("T")
 
 @dataclass
 class OrderTradeInfo:
-    filled_amount: int
+    filled_base_amount: int
+    filled_quote_amount: int
     last_traded_px: int
     num_trades_happened: int
+    as_taker_completed: bool
 
 
 class AkiraExchangeClient:
@@ -119,17 +121,12 @@ class AkiraExchangeClient:
         if len(w_hash) == 0: return Result([])
         return await self._call('is_requests_completed', block, w_hash)
 
-    async def get_safe_trades_info(self, order_hashes: List[int], block='latest') -> Result[List[OrderTradeInfo]]:
-        res = await self._call('get_safe_trades_info', block, order_hashes=order_hashes)
+    async def get_ecosystem_trades_info(self, order_hashes: List[int], block='latest') -> Result[List[OrderTradeInfo]]:
+        res = await self._call('get_ecosystem_trades_info', block, order_hashes=order_hashes)
         if res.data is not None:
-            res.data = [OrderTradeInfo(d['filled_amount'], d['last_traded_px'], d['num_trades_happened']) for d in
-                        res.data]
-        return res
-
-    async def get_unsafe_trades_info(self, order_hashes: List[int], block='latest'):
-        res = await self._call('get_unsafe_trades_info', block, order_hashes=order_hashes)
-        if res.data is not None:
-            res.data = [OrderTradeInfo(d['filled_amount'], d['last_traded_px'], d['num_trades_happened']) for d in
+            res.data = [OrderTradeInfo(d['filled_base_amount'], d['filled_quote_amount'],
+                                       d['last_traded_px'], d['num_trades_happened'],
+                                       d['as_taker_completed']) for d in
                         res.data]
         return res
 

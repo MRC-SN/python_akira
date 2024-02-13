@@ -380,7 +380,7 @@ class JointHttpClient:
             order.router_signer = ZERO_ADDRESS
 
         # router taker through router, if not explicitly specified
-        if not order.flags.to_ecosystem_book and not order.is_passive_order() and order.router_signer == ZERO_ADDRESS and order.flags.external_funds:
+        if not order.flags.to_ecosystem_book and not order.is_passive_order() and order.constraints.router_signer == ZERO_ADDRESS and order.flags.external_funds:
             jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
             result = await self._api_client.query_fake_router_data(jwt, order)
             if result.data is None: return result

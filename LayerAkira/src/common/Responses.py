@@ -4,7 +4,7 @@ from typing import Dict, Tuple, List, Optional
 
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.Requests import OrderFlags, Order, STPMode
+from LayerAkira.src.common.Requests import OrderFlags, Order, STPMode, Quantity
 from LayerAkira.src.common.TradedPair import TradedPair
 
 
@@ -85,6 +85,7 @@ class ReducedOrderInfo:
     state: OrderStateInfo
     price: int
     ticker: TradedPair
+    qty: Quantity
     order_flags: OrderFlags
     stp: STPMode
     expiration_time: int

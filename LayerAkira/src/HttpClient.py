@@ -218,6 +218,7 @@ class AsyncApiHttpClient:
                 d['price'],
                 TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                            self._addr_to_erc[ContractAddress(d['ticker'][1])]),
+                Quantity(d['qty']['base_qty'], d['qty']['quote_qty'], 0),
                 OrderFlags(*[bool(x) for x in d['flags']]),
                 STPMode(d['stp']),
                 d['expiration_time']

@@ -11,7 +11,8 @@ import websockets
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
-from LayerAkira.src.common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, OrderMatcherResult
+from LayerAkira.src.common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, \
+    OrderMatcherResult
 
 
 class Stream(str, Enum):
@@ -212,5 +213,7 @@ class WsClient:
         elif stream == Stream.FILLS:
             b, q = d['pair'].split('-')
             return ExecReport(ContractAddress(d['client']), TradedPair(ERC20Token(b), ERC20Token(q)),
-                              d['fill_price'], d['fill_base_qty'], d['acc_qty'], d['hash'], d['is_sell_side'], OrderStatus(d['status']),
+                              d['fill_price'], d['fill_base_qty'], d['fill_quote_qty'],
+                              d['acc_base_qty'], d['acc_quote_qty'], d['hash'], d['is_sell_side'],
+                              OrderStatus(d['status']),
                               OrderMatcherResult(d['matcher_result']))

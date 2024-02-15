@@ -97,7 +97,9 @@ class ExecReport:
     pair: TradedPair
     price: int
     base_qty: int
-    acc_qty: int
+    quote_qty: int
+    acc_base_qty: int
+    acc_quote_qty: int
     order_hash: int
     is_sell_side: bool
     status: OrderStatus

@@ -15,7 +15,7 @@ class StarknetSmartContract:
         self._full_client: FullNodeClient = contract.client
 
     def prepare_calldata(self, method_name: str, *args, **kwargs) -> Call:
-        prepared_call = self.contract.functions[method_name].prepare(*args, **kwargs)
+        prepared_call = self.contract.functions[method_name].prepare_call(*args, **kwargs)
         return Call(prepared_call.to_addr, prepared_call.selector, prepared_call.calldata)
 
     async def call(self, call: Call, block='latest'):
@@ -31,14 +31,14 @@ class AccountExecutor:
                           nonce: int = 0,
                           max_fee=0, block_number='pending') -> Tuple[bool, Union[SimulatedTransaction, Exception]]:
         try:
-            tx = await account.sign_invoke_transaction(call, nonce=nonce, max_fee=max_fee, auto_estimate=False)
+            tx = await account.sign_invoke_v1(call, nonce=nonce, max_fee=max_fee, auto_estimate=False)
             res = (await self.client.simulate_transactions([tx], skip_validate, skip_fee_charge, block_number=block_number))[0]
             return True, res
         except Exception as e:
             return False, e
 
     async def execute_tx(self, call: Call, account: Account, nonce, max_fee) -> SentTransactionResponse:
-        tx = await account.sign_invoke_transaction(call, nonce=nonce, max_fee=max_fee)
+        tx = await account.sign_invoke_v1(call, nonce=nonce, max_fee=max_fee)
         return await self.client.send_transaction(tx)
 
     async def wait_for_tx(self, tx_hash: Union[str, int], check_interval=2, retries=100) -> Tuple[

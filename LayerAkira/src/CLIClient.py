@@ -63,7 +63,7 @@ def parse_cli_cfg(file_path: str):
     pub = ContractAddress(data['trading_account']['public_key'])
     pk = data['trading_account']['private_key']
     return CLIConfig(data['node_url'], ContractAddress(data['exchange_address']), data['http'], data['wss'], tokens,
-                     StarknetChainId.TESTNET if data['is_testnet'] else StarknetChainId.MAINNET, steps,
+                     StarknetChainId.GOERLI if data['is_testnet'] else StarknetChainId.MAINNET, steps,
                      data['gas_oracle_skew_multiplier'], data['verbose'], (acc, pub, pk))
 
 

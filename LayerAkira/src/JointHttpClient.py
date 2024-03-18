@@ -96,7 +96,7 @@ class JointHttpClient:
         if acc_addr in self._address_to_account:
             logging.info(f'WARN:Account {acc_addr} already set')
         account = Account(address=acc_addr.as_int(), client=self._client,
-                          key_pair=KeyPair(private_key=priv, public_key=pub.as_int()),
+                          key_pair=KeyPair(private_key=int(priv, 16), public_key=pub.as_int()),
                           chain=self._chain)
         self._address_to_account[acc_addr] = account
         self._signer_key_to_pk[pub] = priv

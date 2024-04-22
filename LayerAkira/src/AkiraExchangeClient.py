@@ -156,5 +156,5 @@ class AkiraExchangeClient:
                 logging.error(f'Failed to simulate call to exchange {res}')
                 return False, res
         if on_succ_send:
-            return True, await self.account_executor.execute_tx(call, account, nonce, max_fee)
+            return await self.account_executor.execute_tx(call, account, nonce, max_fee)
         return True, res

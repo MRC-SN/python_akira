@@ -23,7 +23,7 @@ from LayerAkira.src.common.common import precise_to_price_convert
 
 
 def GAS_FEE_ACTION(gas: int, fix_steps):
-    return GasFee(fix_steps, ERC20Token.ETH, gas, (1, 1))
+    return GasFee(fix_steps, ERC20Token.STRK, gas, (1, 1))
 
 
 @dataclass
@@ -63,7 +63,8 @@ def parse_cli_cfg(file_path: str):
     pub = ContractAddress(data['trading_account']['public_key'])
     pk = data['trading_account']['private_key']
     return CLIConfig(data['node_url'], ContractAddress(data['exchange_address']), data['http'], data['wss'], tokens,
-                     StarknetChainId.GOERLI if data['is_testnet'] else StarknetChainId.MAINNET, steps,
+                     StarknetChainId.SEPOLIA_TESTNET if data['is_testnet']
+                     else StarknetChainId.MAINNET, steps,
                      data['gas_oracle_skew_multiplier'], data['verbose'], (acc, pub, pk))
 
 
@@ -142,30 +143,37 @@ class CLIClient:
             ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
             ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
             #
-            # # ['approve_exchange', ['ETH', '1000']],
+            ['approve_exchange', ['STRK', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
             # ['deposit', ['ETH', '0.0000000001']],
             # ['deposit', ['USDC', '50']],
             # ['request_withdraw_on_chain', ['USDC', '10']],
             # ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
             #
-            ['get_bbo', ['ETH/USDC', '1']],
             # ['get_book', ['ETH/USDC', '1']],
             #
             # ['get_order', ['42']],
             # ['get_orders', ['1', '20', '0']],
             # #
             # # ['withdraw', ['USDC', '4']],
-            # ['place_order', ['ETH/USDC', '1945', '0.0000006','0', 'BUY', 'MARKET', '1', '0', '0', 'ECOSYSTEM', 0, 'EXTERNAL', 0]],
-            # ['place_order', ['ETH/USDC', '1944', '0.00000011','0', 'BUY', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
-            # ['place_order', ['ETH/USDC', '1945', '0.00000011', '0','SELL', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
-            # ['place_order', ['ETH/USDC', '1946', '0.00000011', 'SELL', 'LIMIT', '1', '0', '0', 'ECOSYSTEM', 0]],
-            # ['place_order', ['ETH/USDC', '1940', '0.0000007', 'SELL', 'MARKET', '0', '0', '0', 'ECOSYSTEM', 0]],
-            # ['cancel_order', ['345345']],
-            # ['cancel_all', []]
-            #     'withdraw 0x0541cf2823e5d004E9a5278ef8B691B97382FD0c9a6B833a56131E12232A7F0F USDC 25'
+            # ['cancel_all', []],
+            # ['refresh_chain_info', []],
+            # ['user_info', []],
+
+                 ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
+                              'INTERNAL', 0]],
+                # ['place_order',
+                #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+                #   '0']],
+                # ['place_order',
+                #  ['ETH/USDC', '249803.1', '0', '0.250000', 'BUY', 'LIMIT', '1', '0', '0', 'ROUTER', '0', 'INTERNAL',
+                #   '0']],
+                # ['place_order',
+                #  ['ETH/USDC', '244003', '0', '0.488006', 'SELL', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+                #   '0']],
+
         ]
-        # place_order ETH/USDC 1945 0.00000005 BUY LIMIT 1 0 0  ECOSYSTEM
+
 
         for command, args in presets_commands:
             try:
@@ -260,6 +268,7 @@ class CLIClient:
 
         elif command.startswith('place_order'):
             ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount = args
+            min_receive_amount = str(min_receive_amount)
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
             ecosystem = ecosystem == 'ECOSYSTEM'

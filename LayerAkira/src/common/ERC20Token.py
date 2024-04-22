@@ -5,3 +5,4 @@ class ERC20Token(str, Enum):
     ETH = 'ETH'
     USDC = 'USDC'
     USDT = 'USDT'
+    STRK = 'STRK'

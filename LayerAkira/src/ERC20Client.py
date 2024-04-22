@@ -55,7 +55,7 @@ class ERC20Client:
             logging.error(f'Failed to simulate call to contract {res}')
             return False, res
         if on_succ_send:
-            return True, await self._account_executor.execute_tx(call, account, nonce, max_fee)
+            return await self._account_executor.execute_tx(call, account, nonce, max_fee)
         return True, res
 
     async def _call(self, method_name, block, *args, **kwargs):

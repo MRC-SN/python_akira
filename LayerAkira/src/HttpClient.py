@@ -19,6 +19,7 @@ from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLe
     OrderStatus, OrderStateInfo
 from LayerAkira.src.common.common import Result
 
+
 def get_typed_data(message: int, chain_id: int, name="LayerAkira Exchange", version="0.0.1"):
     return TypedData.from_dict(
         {"domain": {"name": name, "chainId": chain_id, "version": version},
@@ -27,6 +28,7 @@ def get_typed_data(message: int, chain_id: int, name="LayerAkira Exchange", vers
                                 {"name": "chainId", "type": "felt"}, {"name": "version", "type": "felt"}],
              "Message": [{"name": "message", "type": "felt"}],
          }, "primaryType": "Message", "message": {"message": message}})
+
 
 class AsyncApiHttpClient:
     """
@@ -61,11 +63,14 @@ class AsyncApiHttpClient:
         if msg.data is None: return msg
 
         url = f'{self._http_host}/sign/auth'
-        msg_hash = get_typed_data(msg.data, chain_id).message_hash(account.as_int())
+        msg_hash = get_typed_data(int(msg.data), chain_id).message_hash(account.as_int())
         return await self._post_query(url, {'msg': msg.data,
                                             'signature': list(message_signature(msg_hash, int(pk, 16)))})
+
     async def query_gas_price(self, jwt: str) -> Result[int]:
-        return await self._get_query(f'{self._http_host}/gas/price', jwt)
+        gas_px = await self._get_query(f'{self._http_host}/gas/price', jwt)
+        if gas_px.data is not None: gas_px.data = int(gas_px.data)
+        return gas_px
 
     async def get_order(self, acc: ContractAddress, jwt: str, order_hash: int, mode: int = 1) -> Result[
         Union[OrderInfo, ReducedOrderInfo]]:
@@ -95,7 +100,8 @@ class AsyncApiHttpClient:
         resp = await self._get_query(url, jwt)
         if resp.data is None: return resp
 
-        def retrieve_lvl(data: Dict): return TableLevel(data['price'], data['volume']) if len(data) > 0 else None
+        def retrieve_lvl(data: Dict): return TableLevel(int(data['price']), int(data['volume']), data['orders']) if len(
+            data) > 0 else None
 
         return Result(BBO(retrieve_lvl(resp.data['bid']), retrieve_lvl(resp.data['ask']), 0))
 
@@ -107,8 +113,9 @@ class AsyncApiHttpClient:
         if resp.data is None: return resp
         levels = resp.data['levels']
         return Result(Snapshot(
-            Table([TableLevel(x[0], x[1]) for x in levels['bids']], [TableLevel(x[0], x[1]) for x in levels['asks']]),
-            levels['msg_id'])
+            Table([TableLevel(int(x[0]), int(x[1]), x[2]) for x in levels['bids']],
+                  [TableLevel(int(x[0]), int(x[1]), x[2]) for x in levels['asks']]),
+            int(levels['msg_id']))
         )
 
     async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee):
@@ -188,10 +195,10 @@ class AsyncApiHttpClient:
         balances = {}
         for pair, fees in info['fees']:
             fees_d[TradedPair(self._addr_to_erc[ContractAddress(pair[0])],
-                              self._addr_to_erc[ContractAddress(pair[1])])] = fees
+                              self._addr_to_erc[ContractAddress(pair[1])])] = (int(fees[0]), int(fees[1]))
 
         for token, total, locked in info['balances']:
-            balances[self._addr_to_erc[ContractAddress(token)]] = (total, locked)
+            balances[self._addr_to_erc[ContractAddress(token)]] = (int(total), int(locked))
 
         return Result(UserInfo(info['nonce'], fees_d, balances))
 
@@ -213,21 +220,21 @@ class AsyncApiHttpClient:
 
     def _parse_order_response(self, d: Dict, mode):
         state_info = OrderStateInfo(
-            d['state']['filled_base_amount'],
-            d['state']['filled_quote_amount'],
+            int(d['state']['filled_base_amount']),
+            int(d['state']['filled_quote_amount']),
             d['state']['cur_number_of_swaps'],
             OrderStatus(d['state']['status']),
-            d['state']['limit_price']
+            int(d['state']['limit_price']) if d['state']['limit_price'] is not None else None
         )
         if mode == 2:
             return ReducedOrderInfo(
                 ContractAddress(d['maker']),
-                d['hash'],
+                int(d['hash'], 16),
                 state_info,
-                d['price'],
+                int(d['price']),
                 TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                            self._addr_to_erc[ContractAddress(d['ticker'][1])]),
-                Quantity(d['qty']['base_qty'], d['qty']['quote_qty'], 0),
+                Quantity(int(d['qty']['base_qty']), int(d['qty']['quote_qty']), 0),
                 OrderFlags(*[bool(x) for x in d['flags']]),
                 STPMode(d['stp']),
                 d['expiration_time']
@@ -237,8 +244,8 @@ class AsyncApiHttpClient:
             return OrderInfo(
                 Order(
                     ContractAddress(d['maker']),
-                    d['price'],
-                    Quantity(d['qty']['base_qty'], d['qty']['quote_qty'], d['qty']['base_asset']),
+                    int(d['price']),
+                    Quantity(int(d['qty']['base_qty']), int(d['qty']['quote_qty']), int(d['qty']['base_asset'])),
                     TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
                                self._addr_to_erc[ContractAddress(d['ticker'][1])]),
                     OrderFee(
@@ -247,8 +254,8 @@ class AsyncApiHttpClient:
                         FixedFee(ContractAddress(router_fee['recipient']), router_fee['maker_pbips'],
                                  router_fee['taker_pbips']),
                         GasFee(gas_fee['gas_per_action'], self._addr_to_erc[ContractAddress(gas_fee['fee_token'])],
-                               gas_fee['max_gas_price'],
-                               tuple(gas_fee['conversion_rate']))
+                               int(gas_fee['max_gas_price']),
+                               tuple(int(x) for x in gas_fee['conversion_rate']))
                     ),
                     Constraints(
                         d['constraints']['number_of_swaps_allowed'],
@@ -256,10 +263,10 @@ class AsyncApiHttpClient:
                         d['constraints']['created_at'],
                         STPMode(d['constraints']['stp']),
                         d['constraints']['nonce'],
-                        d['constraints']['min_receive_amount'],
+                        int(d['constraints']['min_receive_amount']),
                         ContractAddress(d['constraints']['router_signer']),
                     ),
-                    d['salt'],
+                    int(d['salt']),
                     OrderFlags(*[bool(x) for x in d['flags']]),
                     (0, 0),
                     (0, 0),

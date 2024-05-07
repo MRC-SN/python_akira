@@ -200,20 +200,21 @@ class WsClient:
     def _parse_md(d: Dict, stream: Stream):
         if stream == Stream.BBO:
             def retrieve_lvl(data: List):
-                return TableLevel(data[0], data[1]) if len(data) > 0 else None
+                return TableLevel(int(data[0]), int(data[1]), data[2]) if len(data) > 0 else None
 
             return BBO(retrieve_lvl(d['bid']), retrieve_lvl(d['ask']), d['time'])
         elif stream == Stream.BOOK_DELTA:
             return Snapshot(
-                Table([TableLevel(x[0], x[1]) for x in d['bids']], [TableLevel(x[0], x[1]) for x in d['asks']]),
-                d['msg_id'], d['time']
+                Table([TableLevel(int(x[0]), int(x[1]), x[2]) for x in d['bids']],
+                      [TableLevel(int(x[0]), int(x[1]), x[2]) for x in d['asks']]),
+                int(d['msg_id']), d['time']
             )
         elif stream == Stream.TRADE:
-            return Trade(d['price'], d['base_qty'], d['is_sell_side'], d['time'])
+            return Trade(int(d['price']), int(d['base_qty']), d['is_sell_side'], d['time'])
         elif stream == Stream.FILLS:
             b, q = d['pair'].split('-')
             return ExecReport(ContractAddress(d['client']), TradedPair(ERC20Token(b), ERC20Token(q)),
-                              d['fill_price'], d['fill_base_qty'], d['fill_quote_qty'],
-                              d['acc_base_qty'], d['acc_quote_qty'], d['hash'], d['is_sell_side'],
+                              int(d['fill_price']), int(d['fill_base_qty']), int(d['fill_quote_qty']),
+                              int(d['acc_base_qty']), int(d['acc_quote_qty']), int(d['hash'],16), d['is_sell_side'],
                               OrderStatus(d['status']),
                               OrderMatcherResult(d['matcher_result']))

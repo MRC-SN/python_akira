@@ -29,9 +29,10 @@ class FakeRouterData:
 class TableLevel:
     price: int
     volume: int
+    num_orders: int
 
     def __str__(self):
-        return f'Lvl(px={self.price},vol={self.volume})'
+        return f'Lvl(px={self.price},vol={self.volume},orders={self.num_orders})'
 
 
 @dataclass

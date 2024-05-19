@@ -21,13 +21,21 @@ from LayerAkira.src.common.common import Result
 
 
 def get_typed_data(message: int, chain_id: int, name="LayerAkira Exchange", version="0.0.1"):
+    challenge = (
+        'Sign in to LayerAkira',
+        "\tChallenge:",
+        hex(message)
+    )
     return TypedData.from_dict(
         {"domain": {"name": name, "version": version, "chainId": chain_id},
          "types": {
              "StarkNetDomain": [{"name": "name", "type": "felt"},
                                 {"name": "version", "type": "felt"}, {"name": "chainId", "type": "felt"}],
-             "Message": [{"name": "message", "type": "felt"}],
-         }, "primaryType": "Message", "message": {"message": message}})
+             "Message": [{"name": "welcome", "type": "string"},
+                         {"name": "to", "type": "string"},
+                         {"name": "exchange", "type": "string"}],
+         }, "primaryType": "Message",
+         "message": {'welcome': challenge[0], 'to': challenge[1], 'exchange': challenge[2]}})
 
 
 class AsyncApiHttpClient:

@@ -63,7 +63,7 @@ def parse_cli_cfg(file_path: str):
     pub = ContractAddress(data['trading_account']['public_key'])
     pk = data['trading_account']['private_key']
     return CLIConfig(data['node_url'], ContractAddress(data['exchange_address']), data['http'], data['wss'], tokens,
-                     StarknetChainId.SEPOLIA_TESTNET if data['is_testnet']
+                     StarknetChainId.SEPOLIA if data['is_testnet']
                      else StarknetChainId.MAINNET, steps,
                      data['gas_oracle_skew_multiplier'], data['verbose'], (acc, pub, pk))
 
@@ -146,7 +146,7 @@ class CLIClient:
             ['approve_exchange', ['STRK', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
             # ['deposit', ['ETH', '0.0000000001']],
-            # ['deposit', ['USDC', '50']],
+            ['deposit', ['STRK', '1']],
             # ['request_withdraw_on_chain', ['USDC', '10']],
             # ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
             #

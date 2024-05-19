@@ -4,7 +4,8 @@ from typing import Tuple, Dict, List, Union, TypeVar
 
 from starknet_py.contract import Contract
 from starknet_py.net.account.account import Account
-from starknet_py.net.client_models import Call, SimulatedTransaction, SentTransactionResponse
+from starknet_py.net.client_models import Call, SimulatedTransaction, SentTransactionResponse, \
+    ResourceBoundsMapping
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.serialization.factory import serializer_for_outputs
 
@@ -80,23 +81,30 @@ class AkiraExchangeClient:
         if res.data is not None: res.data = ContractAddress(res.data)
         return res
 
-    async def bind_signer(self, account: Account, pub_key: ContractAddress, max_fee: int, nonce=None,
+    async def bind_signer(self, account: Account, pub_key: ContractAddress,
+                          max_fee: ResourceBoundsMapping,
+                          nonce=None,
                           on_succ_send=True):
         call = self.akira.prepare_calldata('bind_to_signer', pub_key.as_int())
         return await self._common(call, account, max_fee, nonce, on_succ_send)
 
-    async def deposit(self, account: Account, receiver: ContractAddress, token: ERC20Token, amount: int, max_fee: int,
+    async def deposit(self, account: Account, receiver: ContractAddress, token: ERC20Token, amount: int,
+                      max_fee: ResourceBoundsMapping,
                       nonce=None,
                       on_succ_send=True):
         call = self.akira.prepare_calldata('deposit', receiver.as_int(), self._erc_to_addr[token].as_int(), amount)
         return await self._common(call, account, max_fee, nonce, on_succ_send)
 
-    async def request_onchain_withdraw(self, account: Account, w: Withdraw, max_fee: int, nonce=None,
+    async def request_onchain_withdraw(self, account: Account, w: Withdraw,
+                                       max_fee: ResourceBoundsMapping,
+                                       nonce=None,
                                        on_succ_send=True):
         call = self.akira.prepare_calldata('request_onchain_withdraw', self._formatter.prepare_withdraw(w)['withdraw'])
         return await self._common(call, account, max_fee, nonce, on_succ_send)
 
-    async def apply_onchain_withdraw(self, account: Account, token: ERC20Token, key: int, max_fee: int, nonce=None,
+    async def apply_onchain_withdraw(self, account: Account, token: ERC20Token, key: int,
+                                     max_fee: ResourceBoundsMapping,
+                                     nonce=None,
                                      on_succ_send=True):
         call = self.akira.prepare_calldata('apply_onchain_withdraw', self._erc_to_addr[token].as_int(), key)
         return await self._common(call, account, max_fee, nonce, on_succ_send)

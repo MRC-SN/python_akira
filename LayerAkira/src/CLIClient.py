@@ -10,16 +10,15 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
-from LayerAkira.src.AkiraFormatter import AkiraFormatter
-from LayerAkira.src.Hasher import SnHasher
-from LayerAkira.src.JointHttpClient import JointHttpClient
 from LayerAkira.src.HttpClient import AsyncApiHttpClient
+from LayerAkira.src.JointHttpClient import JointHttpClient
+from LayerAkira.src.WsClient import WsClient, Stream
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.TradedPair import TradedPair
-from LayerAkira.src.WsClient import WsClient, Stream
 from LayerAkira.src.common.FeeTypes import GasFee
+from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert
+from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher
 
 
 def GAS_FEE_ACTION(gas: int, fix_steps):
@@ -86,14 +85,13 @@ class CLIClient:
     def __init__(self, cli_cfg_path: str):
         self.cli_cfg = parse_cli_cfg(cli_cfg_path)
 
-    async def start(self):
+    async def start(self, domain):
         node_client = FullNodeClient(node_url=self.cli_cfg.node)
         erc_to_addr = {token.symbol: token.address for token in self.cli_cfg.tokens}
         contract_client = AkiraExchangeClient(node_client, self.cli_cfg.exchange_address, erc_to_addr)
         await contract_client.init()
 
-        sn_hasher = SnHasher(AkiraFormatter(erc_to_addr),
-                             contract_client.akira.contract.data.parsed_abi.defined_structures)
+        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
         api_client = AsyncApiHttpClient(sn_hasher, erc_to_addr, self.cli_cfg.http, self.cli_cfg.verbose)
 
@@ -160,20 +158,19 @@ class CLIClient:
             # ['refresh_chain_info', []],
             # ['user_info', []],
 
-                 ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
-                              'INTERNAL', 0]],
-                # ['place_order',
-                #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
-                # ['place_order',
-                #  ['ETH/USDC', '249803.1', '0', '0.250000', 'BUY', 'LIMIT', '1', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
-                # ['place_order',
-                #  ['ETH/USDC', '244003', '0', '0.488006', 'SELL', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
+            ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
+                             'INTERNAL', 0]],
+            # ['place_order',
+            #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
+            # ['place_order',
+            #  ['ETH/USDC', '249803.1', '0', '0.250000', 'BUY', 'LIMIT', '1', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
+            # ['place_order',
+            #  ['ETH/USDC', '244003', '0', '0.488006', 'SELL', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
 
         ]
-
 
         for command, args in presets_commands:
             try:
@@ -309,4 +306,3 @@ class CLIClient:
             return await client.query_listen_key(trading_account)
         else:
             print(f'Unknown command {command} with args {args}')
-

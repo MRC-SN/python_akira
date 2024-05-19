@@ -9,20 +9,19 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 
-from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
-from LayerAkira.src.AkiraFormatter import AkiraFormatter
 from LayerAkira.src.ERC20Client import ERC20Client
-from LayerAkira.src.Hasher import SnHasher
+from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
 from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode, Quantity, Constraints
+from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, Snapshot, UserInfo, BBO
 from LayerAkira.src.common.TradedPair import TradedPair
+from LayerAkira.src.common.common import Result
 from LayerAkira.src.common.common import precise_to_price_convert, random_int
 from LayerAkira.src.common.constants import ZERO_ADDRESS
-from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, Snapshot, UserInfo, BBO
-from LayerAkira.src.common.common import Result
+from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher, AppDomain
 
 
 class JointHttpClient:
@@ -39,7 +38,7 @@ class JointHttpClient:
                  exchange_addr: ContractAddress,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
                  token_to_decimals: Dict[ERC20Token, int],
-                 chain=StarknetChainId.GOERLI,
+                 chain=StarknetChainId.SEPOLIA_TESTNET,
                  gas_multiplier=1.25,
                  exchange_version=0,
                  verbose=False):
@@ -66,8 +65,7 @@ class JointHttpClient:
         self._exchange_addr = exchange_addr
 
         self._tokens_to_addr: Dict[ERC20Token, ContractAddress] = erc_to_addr
-        self._hasher: SnHasher = SnHasher(AkiraFormatter(erc_to_addr),
-                                          self.akira.akira.contract.data.parsed_abi.defined_structures)
+        self._hasher = SnTypedPedersenHasher(erc_to_addr, AppDomain(chain.value))
 
         self._address_to_account: Dict[ContractAddress, Account] = {}
         self._tokens_to_erc: Dict[ERC20Token, ERC20Client] = {}
@@ -121,7 +119,7 @@ class JointHttpClient:
             logging.warning(f'Fail to query exchange balance due {res}')
             return res
 
-        exchange_balances: List[Tuple[ERC20Token, Tuple[int, int]]] = list(zip(self._tokens_to_erc.keys(), res.data))
+        exchange_balances: List[Tuple[ERC20Token, Tuple[int, int]]] = list(zip(self._tokens_to_erc.keys(), res.data[0]))
 
         res = await self.akira.get_nonce(acc_addr)
         if res.data is None:

@@ -36,7 +36,8 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent"
     ],
-    packages=["LayerAkira", "LayerAkira.src", "LayerAkira.src.common", "LayerAkira.executables"],
+    packages=["LayerAkira", "LayerAkira.src", "LayerAkira.src.common", "LayerAkira.executables",
+              "LayerAkira.src.hasher"],
     include_package_data=True,
     install_requires=[
         'websockets',

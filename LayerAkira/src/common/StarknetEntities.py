@@ -41,7 +41,7 @@ class AccountExecutor:
                           max_fee=0, block_number='pending') -> Tuple[bool, Union[SimulatedTransaction, Exception]]:
         try:
             tx = await account.sign_invoke_v3(call, nonce=nonce, l1_resource_bounds=ResourceBounds(
-                max_amount=50000, max_price_per_unit=int(1e14)
+                max_amount=1_000_000, max_price_per_unit=int(8e14)
             ),
                                               auto_estimate=False)
             res: SimulatedTransaction = \
@@ -57,7 +57,7 @@ class AccountExecutor:
             Tuple[bool, Union[SentTransactionResponse, Exception]]:
         try:
             tx = await account.sign_invoke_v3(call, nonce=nonce, l1_resource_bounds=ResourceBounds(
-                max_amount=50000, max_price_per_unit=int(1e14)
+                max_amount=50000, max_price_per_unit=int(8e14)
             ))
             res: SentTransactionResponse = await self.client.send_transaction(tx)
             return True, res

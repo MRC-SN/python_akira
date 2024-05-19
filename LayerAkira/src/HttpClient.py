@@ -5,7 +5,7 @@ from aiohttp import ClientSession
 from starknet_py.hash.utils import message_signature
 from starknet_py.utils.typed_data import TypedData
 
-from LayerAkira.src.Hasher import SnHasher
+from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher
 from LayerAkira.src.OrderSerializer import SimpleOrderSerializer
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
@@ -22,10 +22,10 @@ from LayerAkira.src.common.common import Result
 
 def get_typed_data(message: int, chain_id: int, name="LayerAkira Exchange", version="0.0.1"):
     return TypedData.from_dict(
-        {"domain": {"name": name, "chainId": chain_id, "version": version},
+        {"domain": {"name": name, "version": version, "chainId": chain_id},
          "types": {
              "StarkNetDomain": [{"name": "name", "type": "felt"},
-                                {"name": "chainId", "type": "felt"}, {"name": "version", "type": "felt"}],
+                                {"name": "version", "type": "felt"}, {"name": "chainId", "type": "felt"}],
              "Message": [{"name": "message", "type": "felt"}],
          }, "primaryType": "Message", "message": {"message": message}})
 
@@ -35,7 +35,7 @@ class AsyncApiHttpClient:
     Stateless Http client for interaction with LayerAkira exchange
     """
 
-    def __init__(self, sn_hasher: SnHasher,
+    def __init__(self, sn_hasher: SnTypedPedersenHasher,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
                  exchange_http_host='http://localhost:8080',
                  verbose=False):
@@ -48,7 +48,7 @@ class AsyncApiHttpClient:
         """
         self._http = ClientSession()
         self._http_host = exchange_http_host
-        self._hasher: SnHasher = sn_hasher
+        self._hasher: SnTypedPedersenHasher = sn_hasher
         self._erc_to_addr: Dict[ERC20Token, ContractAddress] = erc_to_addr
         self._addr_to_erc: Dict[ContractAddress, ERC20Token] = {v: k for k, v in erc_to_addr.items()}
         self._order_serder = SimpleOrderSerializer(self._erc_to_addr)
@@ -193,12 +193,12 @@ class AsyncApiHttpClient:
         info = info.data
         fees_d = {}
         balances = {}
-        for pair, fees in info['fees']:
-            fees_d[TradedPair(self._addr_to_erc[ContractAddress(pair[0])],
-                              self._addr_to_erc[ContractAddress(pair[1])])] = (int(fees[0]), int(fees[1]))
+        for data in info['fees']:
+            fees_d[TradedPair(ERC20Token(data['base']), ERC20Token(data['quote']))] = (
+                int(data['fee'][0]), int(data['fee'][1]))
 
-        for token, total, locked in info['balances']:
-            balances[self._addr_to_erc[ContractAddress(token)]] = (int(total), int(locked))
+        for data in info['balances']:
+            balances[ERC20Token(data['token'])] = (int(data['balance']), int(data['locked']))
 
         return Result(UserInfo(info['nonce'], fees_d, balances))
 
@@ -232,8 +232,7 @@ class AsyncApiHttpClient:
                 int(d['hash'], 16),
                 state_info,
                 int(d['price']),
-                TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
-                           self._addr_to_erc[ContractAddress(d['ticker'][1])]),
+                TradedPair(ERC20Token(d['ticker']['base']), ERC20Token(d['ticker']['quote'])),
                 Quantity(int(d['qty']['base_qty']), int(d['qty']['quote_qty']), 0),
                 OrderFlags(*[bool(x) for x in d['flags']]),
                 STPMode(d['stp']),
@@ -246,14 +245,13 @@ class AsyncApiHttpClient:
                     ContractAddress(d['maker']),
                     int(d['price']),
                     Quantity(int(d['qty']['base_qty']), int(d['qty']['quote_qty']), int(d['qty']['base_asset'])),
-                    TradedPair(self._addr_to_erc[ContractAddress(d['ticker'][0])],
-                               self._addr_to_erc[ContractAddress(d['ticker'][1])]),
+                    TradedPair(ERC20Token(d['ticker']['base']), ERC20Token(d['ticker']['quote'])),
                     OrderFee(
                         FixedFee(ContractAddress(trade_fee['recipient']), trade_fee['maker_pbips'],
                                  trade_fee['taker_pbips']),
                         FixedFee(ContractAddress(router_fee['recipient']), router_fee['maker_pbips'],
                                  router_fee['taker_pbips']),
-                        GasFee(gas_fee['gas_per_action'], self._addr_to_erc[ContractAddress(gas_fee['fee_token'])],
+                        GasFee(gas_fee['gas_per_action'], ERC20Token(gas_fee['fee_token']),
                                int(gas_fee['max_gas_price']),
                                tuple(int(x) for x in gas_fee['conversion_rate']))
                     ),

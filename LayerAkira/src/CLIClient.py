@@ -143,10 +143,10 @@ class CLIClient:
             ['subscribe_book', ['snap', 'ETH', 'USDC', '1']],
             ['subscribe_fills', [self.cli_cfg.trading_account[0]]],
             #
-            ['approve_exchange', ['STRK', '1000']],
+            # ['approve_exchange', ['STRK', '1000']],
             # ['approve_exchange', ['USDC', '10000000000000']],
             # ['deposit', ['ETH', '0.0000000001']],
-            ['deposit', ['STRK', '1']],
+            # ['deposit', ['STRK', '1']],
             # ['request_withdraw_on_chain', ['USDC', '10']],
             # ['apply_onchain_withdraw', ['USDC', '0x267d006ca778631a91d85ef80b5d5b25aeacd9d989896b9ccf5a6ac760f1f69']],
             #

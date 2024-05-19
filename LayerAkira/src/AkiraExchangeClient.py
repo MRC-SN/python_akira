@@ -51,10 +51,10 @@ class AkiraExchangeClient:
         for k, v in contract.data.parsed_abi.functions.items():
             self._name_to_deser[k] = serializer_for_outputs(v.outputs).deserialize
 
-    async def get_withdraw_steps(self, block='latest') -> Result[int]:
+    async def get_withdraw_steps(self, block='pending') -> Result[int]:
         return await self._call('get_withdraw_steps', block)
 
-    async def get_fee_recipient(self, block='latest') -> Result[ContractAddress]:
+    async def get_fee_recipient(self, block='pending') -> Result[ContractAddress]:
         r = await self._call('get_fee_recipient', block)
         if r.data is not None: r.data = ContractAddress(r.data)
         return r
@@ -62,21 +62,21 @@ class AkiraExchangeClient:
     async def wait_for_recipient(self, tx_hash: int, check_interval=2, retries=100):
         return await self._client.wait_for_tx(tx_hash, check_interval=check_interval, retries=retries)
 
-    async def get_latest_gas_price(self, block='latest') -> Result[int]:
+    async def get_latest_gas_price(self, block='pending') -> Result[int]:
         return await self._call('get_latest_gas_price', block)
 
-    async def balanceOf(self, addr: ContractAddress, token: ERC20Token, block='latest') -> Result[int]:
+    async def balanceOf(self, addr: ContractAddress, token: ERC20Token, block='pending') -> Result[int]:
         return await self._call('balanceOf', block, addr.as_int(), self._erc_to_addr[token].as_int())
 
-    async def balancesOf(self, addrs: List[ContractAddress], tokens: List[ERC20Token], block='latest') -> Result[
+    async def balancesOf(self, addrs: List[ContractAddress], tokens: List[ERC20Token], block='pending') -> Result[
         List[List[int]]]:
         return await self._call('balancesOf', block, [x.as_int() for x in addrs],
                                 [self._erc_to_addr[x].as_int() for x in tokens])
 
-    async def total_supply(self, token: ERC20Token, block='latest') -> Result[int]:
+    async def total_supply(self, token: ERC20Token, block='pending') -> Result[int]:
         return await self._call('total_supply', block, self._erc_to_addr[token].as_int())
 
-    async def get_signer(self, trader: ContractAddress, block='latest') -> Result[ContractAddress]:
+    async def get_signer(self, trader: ContractAddress, block='pending') -> Result[ContractAddress]:
         res = await self._call('get_signer', block, trader.as_int())
         if res.data is not None: res.data = ContractAddress(res.data)
         return res
@@ -109,27 +109,27 @@ class AkiraExchangeClient:
         call = self.akira.prepare_calldata('apply_onchain_withdraw', self._erc_to_addr[token].as_int(), key)
         return await self._common(call, account, max_fee, nonce, on_succ_send)
 
-    async def get_signers(self, traders: List[ContractAddress], block='latest') -> Result[List[ContractAddress]]:
+    async def get_signers(self, traders: List[ContractAddress], block='pending') -> Result[List[ContractAddress]]:
         if len(traders) == 0: return Result([])
         res = await self._call('get_signers', block, [trader.as_int() for trader in traders])
         if res.data is not None: res.data = [ContractAddress(c) for c in res.data]
         return res
 
-    async def get_nonce(self, trader: ContractAddress, block='latest') -> Result[int]:
+    async def get_nonce(self, trader: ContractAddress, block='pending') -> Result[int]:
         return await self._call('get_nonce', block, trader.as_int())
 
-    async def get_nonces(self, traders: List[ContractAddress], block='latest') -> Result[List[int]]:
+    async def get_nonces(self, traders: List[ContractAddress], block='pending') -> Result[List[int]]:
         if len(traders) == 0: return Result([])
         return await self._call('get_nonces', block, [trader.as_int() for trader in traders])
 
-    async def is_withdrawal_request_completed(self, w_hash: int, block='latest') -> Result[bool]:
+    async def is_withdrawal_request_completed(self, w_hash: int, block='pending') -> Result[bool]:
         return await self._call('is_request_completed', block, w_hash)
 
-    async def is_withdrawal_requests_completed(self, w_hash: List[int], block='latest') -> Result[List[bool]]:
+    async def is_withdrawal_requests_completed(self, w_hash: List[int], block='pending') -> Result[List[bool]]:
         if len(w_hash) == 0: return Result([])
         return await self._call('is_requests_completed', block, w_hash)
 
-    async def get_ecosystem_trades_info(self, order_hashes: List[int], block='latest') -> Result[List[OrderTradeInfo]]:
+    async def get_ecosystem_trades_info(self, order_hashes: List[int], block='pending') -> Result[List[OrderTradeInfo]]:
         res = await self._call('get_ecosystem_trades_info', block, order_hashes=order_hashes)
         if res.data is not None:
             res.data = [OrderTradeInfo(d['filled_base_amount'], d['filled_quote_amount'],
@@ -138,7 +138,7 @@ class AkiraExchangeClient:
                         res.data]
         return res
 
-    async def have_sufficient_amount_to_route(self, router_address: ContractAddress, block='latest'):
+    async def have_sufficient_amount_to_route(self, router_address: ContractAddress, block='pending'):
         return await self._call('have_sufficient_amount_to_route', block, router_address.as_int())
 
     async def _common(self, call, account, max_fee, nonce, on_succ_send=False, skip_sim=False):

@@ -26,7 +26,7 @@ class StarknetSmartContract:
         prepared_call = self.contract.functions[method_name].prepare_call(*args, **kwargs)
         return Call(prepared_call.to_addr, prepared_call.selector, prepared_call.calldata)
 
-    async def call(self, call: Call, block='latest'):
+    async def call(self, call: Call, block='pending'):
         """:param block_number: Block's number or literals `"pending"` or `"latest"`"""
         return await self.contract.client.call_contract(call, block_number=block)
 

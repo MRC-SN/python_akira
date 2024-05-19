@@ -31,10 +31,10 @@ class ERC20Client:
         for k, v in contract.data.parsed_abi.functions.items():
             self._name_to_deser[k] = serializer_for_payload(v.outputs).deserialize
 
-    async def balanceOf(self, addr: ContractAddress, block='latest') -> Result[int]:
+    async def balanceOf(self, addr: ContractAddress, block='pending') -> Result[int]:
         return await self._call('balanceOf', block, addr.as_int())
 
-    async def allowance(self, owner: ContractAddress, spender: ContractAddress, block='latest') -> Result[int]:
+    async def allowance(self, owner: ContractAddress, spender: ContractAddress, block='pending') -> Result[int]:
         return await self._call('allowance', block, owner.as_int(), spender.as_int())
 
     async def approve(self, account: Account, spender: ContractAddress, amount: int,

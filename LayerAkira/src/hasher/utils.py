@@ -60,7 +60,8 @@ def get_order_typed_data(obj: Order, erc_to_addr, domain):
             'to_ecosystem_book': obj.flags.to_ecosystem_book,
             'external_funds': obj.flags.external_funds,
         },
-        'version': obj.version
+        'version': obj.version,
+        'source': obj.source
     }
     return TypedData.from_dict(
         {"domain": {"name": domain.name, "version": domain.version,

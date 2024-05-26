@@ -244,7 +244,8 @@ class AsyncApiHttpClient:
                 Quantity(int(d['qty']['base_qty']), int(d['qty']['quote_qty']), 0),
                 OrderFlags(*[bool(x) for x in d['flags']]),
                 STPMode(d['stp']),
-                d['expiration_time']
+                d['expiration_time'],
+                d['source']
             )
         elif mode == 1:
             trade_fee, router_fee, gas_fee = d['fee']['trade_fee'], d['fee']['router_fee'], d['fee']['gas_fee']
@@ -276,7 +277,8 @@ class AsyncApiHttpClient:
                     OrderFlags(*[bool(x) for x in d['flags']]),
                     (0, 0),
                     (0, 0),
-                    d['version']
+                    d['version'],
+                    d['source']
                 ),
                 state_info
             )

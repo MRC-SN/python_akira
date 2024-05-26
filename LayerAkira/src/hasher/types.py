@@ -128,6 +128,10 @@ order_type = {
         {
             "name": "version",
             "type": "felt"
+        },
+        {
+            "name": "source",
+            "type": "felt"
         }
     ],
     "u256": [

@@ -90,6 +90,7 @@ class ReducedOrderInfo:
     order_flags: OrderFlags
     stp: STPMode
     expiration_time: int
+    source: str
 
 
 @dataclass

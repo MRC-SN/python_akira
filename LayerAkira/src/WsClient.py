@@ -133,7 +133,7 @@ class WsClient:
             logging.warning(f'Unknown stream {stream} for packet  {d}')
             return
         if stream in [Stream.BBO, Stream.TRADE, Stream.BOOK_DELTA]:
-            b, q = d['pair'].split('-')
+            b, q = d['pair']['base'], d['pair']['quote']
             pair = TradedPair(ERC20Token(b), ERC20Token(q))
             stream_id = (hash((stream, hash(pair), d['ecosystem'])))
             await self._subscribers[stream_id](self._parse_md(d['result'], Stream(stream)))
@@ -156,8 +156,8 @@ class WsClient:
         self._idx += 1
         req = {
             'action': 'subscribe', 'id': self._idx,
-            'stream': stream.value, 'base': traded_pair.base.value, 'quote': traded_pair.quote.value,
-            'ecosystem_book': ecosystem_book}
+            'stream': stream.value, 'ticker': {'base': traded_pair.base.value, 'quote': traded_pair.quote.value,
+                                               'ecosystem_book': ecosystem_book}}
         stream_id = (hash((stream.value, hash(traded_pair), ecosystem_book)))
         return await self._subscribe(cb, req, stream_id, self._idx)
 
@@ -212,9 +212,9 @@ class WsClient:
         elif stream == Stream.TRADE:
             return Trade(int(d['price']), int(d['base_qty']), d['is_sell_side'], d['time'])
         elif stream == Stream.FILLS:
-            b, q = d['pair'].split('-')
+            b, q = d['pair']['base'], d['pair']['quote']
             return ExecReport(ContractAddress(d['client']), TradedPair(ERC20Token(b), ERC20Token(q)),
                               int(d['fill_price']), int(d['fill_base_qty']), int(d['fill_quote_qty']),
-                              int(d['acc_base_qty']), int(d['acc_quote_qty']), int(d['hash'],16), d['is_sell_side'],
+                              int(d['acc_base_qty']), int(d['acc_quote_qty']), int(d['hash'], 16), d['is_sell_side'],
                               OrderStatus(d['status']),
                               OrderMatcherResult(d['matcher_result']))

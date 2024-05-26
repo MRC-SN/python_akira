@@ -13,7 +13,7 @@ class ContractAddress:
             raise Exception(f'Unknown type for {val}')
 
     def __str__(self):
-        return hex(self._value)
+        return self.as_str()
 
     def __eq__(self, other):
         return self._value == other._value
@@ -28,4 +28,4 @@ class ContractAddress:
         return self._value
 
     def as_str(self):
-        return hex(self._value)
+        return f"{self._value:#0{66}x}"

@@ -42,7 +42,7 @@ class JointHttpClient:
                  exchange_addr: ContractAddress,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
                  token_to_decimals: Dict[ERC20Token, int],
-                 chain=StarknetChainId.GOERLI,
+                 chain=StarknetChainId.SEPOLIA,
                  gas_multiplier=1.25,
                  exchange_version=0,
                  verbose=False):

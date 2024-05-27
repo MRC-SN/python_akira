@@ -5,7 +5,7 @@ import asyncio
 import logging
 
 from LayerAkira.src.CLIClient import CLIClient
-from hasher.Hasher import AppDomain
+from LayerAkira.src.hasher.Hasher import AppDomain
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CliClient', description='Interact with LayerAkira')

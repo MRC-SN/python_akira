@@ -5,12 +5,16 @@ from typing import Dict, Tuple, Optional, DefaultDict, List, Union
 
 from starknet_py.hash.utils import message_signature
 from starknet_py.net.account.account import Account
+from starknet_py.net.client_models import ResourceBoundsMapping
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 
+from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
+from LayerAkira.src.AkiraFormatter import AkiraFormatter
 from LayerAkira.src.ERC20Client import ERC20Client
+from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
@@ -38,7 +42,7 @@ class JointHttpClient:
                  exchange_addr: ContractAddress,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
                  token_to_decimals: Dict[ERC20Token, int],
-                 chain=StarknetChainId.SEPOLIA_TESTNET,
+                 chain=StarknetChainId.GOERLI,
                  gas_multiplier=1.25,
                  exchange_version=0,
                  verbose=False):
@@ -154,13 +158,16 @@ class JointHttpClient:
 
     async def apply_onchain_withdraw(self, acc_addr: ContractAddress, token: ERC20Token, key: int) -> Optional[str]:
         account = self._address_to_account[acc_addr]
-        is_succ, result = await self.akira.apply_onchain_withdraw(account, token, key, 0, None, False)
+        is_succ, result = await self.akira.apply_onchain_withdraw(account, token, key,
+                                                                  ResourceBoundsMapping.init_with_zeros(),
+                                                                  None, False)
         if not is_succ:
             logging.warning(f'Failed to simulate {result}')
             return None
 
         is_succ, result = await self.akira.apply_onchain_withdraw(account, token, key,
-                                                                  int(result.fee_estimation.overall_fee * 1.2), None,
+                                                                  result.fee_estimation.to_resource_bounds(),
+                                                                  None,
                                                                   True)
         if is_succ:
             if self._verbose: logging.info(f'Sent transaction {hex(result.transaction_hash)}')
@@ -186,13 +193,16 @@ class JointHttpClient:
         if self._verbose:
             logging.info(f'Withdraw hash {hex(self._hasher.hash(w))}')
 
-        is_succ, result = await self.akira.request_onchain_withdraw(account, w, 0, None, False)
+        is_succ, result = await self.akira.request_onchain_withdraw(account, w,
+                                                                    ResourceBoundsMapping.init_with_zeros(),
+                                                                    None, False)
         if not is_succ:
             logging.warning(f'Failed to simulate {result}')
             return
 
         is_succ, result = await self.akira.request_onchain_withdraw(account, w,
-                                                                    int(result.fee_estimation.overall_fee * 1.2), None,
+                                                                    result.fee_estimation.to_resource_bounds(),
+                                                                    None,
                                                                     True)
         if is_succ:
             if self._verbose: logging.info(f'Sent transaction {hex(result.transaction_hash)}')
@@ -219,12 +229,14 @@ class JointHttpClient:
     async def approve_exchange(self, acc_addr: ContractAddress, token: ERC20Token, amount: str):
         account = self._address_to_account[acc_addr]
         amount = precise_to_price_convert(amount, self._token_to_decimals[token])
-        is_succ, result = await self._tokens_to_erc[token].approve(account, self._exchange_addr, amount, 0, None, False)
+        is_succ, result = await self._tokens_to_erc[token].approve(account, self._exchange_addr, amount,
+                                                                   ResourceBoundsMapping.init_with_zeros(),
+                                                                   None, False)
         if not is_succ:
             logging.info(f'Failed to simulate {result}')
             return
         is_succ, result = await self._tokens_to_erc[token].approve(account, self._exchange_addr, amount,
-                                                                   int(result.fee_estimation.overall_fee * 1.2), None,
+                                                                   result.fee_estimation.to_resource_bounds(), None,
                                                                    True)
         if is_succ:
             if self._verbose: logging.info(f'Sent transaction {hex(result.transaction_hash)}')
@@ -235,13 +247,16 @@ class JointHttpClient:
     async def deposit_on_exchange(self, acc_addr: ContractAddress, token: ERC20Token, amount: str):
         account = self._address_to_account[acc_addr]
         amount = precise_to_price_convert(amount, self._token_to_decimals[token])
-        is_succ, result = await self.akira.deposit(account, ContractAddress(account.address), token, amount, 0, None,
+        is_succ, result = await self.akira.deposit(account, ContractAddress(account.address), token, amount,
+                                                   ResourceBoundsMapping.init_with_zeros(),
+                                                   None,
                                                    False)
         if not is_succ:
             logging.info(f'Failed to simulate {result}')
             return
         is_succ, result = await self.akira.deposit(account, ContractAddress(account.address), token, amount,
-                                                   int(result.fee_estimation.overall_fee * 1.2), None,
+                                                   result.fee_estimation.to_resource_bounds(),
+                                                   None,
                                                    True)
         if is_succ:
             logging.info(f'Sent transaction {hex(result.transaction_hash)}')
@@ -255,13 +270,14 @@ class JointHttpClient:
             So public key is responsible for generating signature for required trading activities
         """
         account = self._address_to_account[acc_addr]
-        is_succ, result = await self.akira.bind_signer(account, ContractAddress(account.signer.public_key), 0, None,
+        is_succ, result = await self.akira.bind_signer(account, ContractAddress(account.signer.public_key),
+                                                       ResourceBoundsMapping.init_with_zeros(), None,
                                                        False)
         if not is_succ:
             logging.warning(f'Failed to simulate {result}')
             return
         is_succ, result = await self.akira.bind_signer(account, ContractAddress(account.signer.public_key),
-                                                       int(result.fee_estimation.overall_fee * 1.2), None,
+                                                       result.fee_estimation.to_resource_bounds(), None,
                                                        True)
         if is_succ:
             if self._verbose: logging.info(f'Sent transaction {hex(result.transaction_hash)}')

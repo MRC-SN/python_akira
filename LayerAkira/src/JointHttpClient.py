@@ -145,7 +145,6 @@ class JointHttpClient:
     async def init(self):
         for k, v in self._tokens_to_addr.items():
             self._tokens_to_erc[k] = ERC20Client(self._client, v)
-            await self._tokens_to_erc[k].init()
 
         self.fee_recipient = (await self.akira.get_fee_recipient()).data
         assert self.fee_recipient is not None
@@ -396,15 +395,13 @@ class JointHttpClient:
         # router taker through router, if not explicitly specified
         if not order.flags.to_ecosystem_book and not order.is_passive_order() and order.constraints.router_signer == ZERO_ADDRESS and order.flags.external_funds:
             jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
-            result = await self._api_client.query_fake_router_data(jwt, order)
+            result = await self._api_client.query_router_details(jwt)
             if result.data is None: return result
-
-            order.fee.trade_fee.taker_pbips = result.data.taker_pbips
             order.fee.router_fee.recipient = result.data.fee_recipient
-            order.fee.router_fee.taker_pbips = result.data.max_taker_pbips
+            order.fee.router_fee.taker_pbips = result.data.taker_pbips
             order.fee.router_fee.maker_pbips = result.data.maker_pbips
             order.constraints.router_signer = result.data.router_signer
-            order.router_sign = result.data.router_signature
+            order.router_sign = (0, 0)
 
         order_hash = self._hasher.hash(order)
         order.sign = list(message_signature(order_hash, int(pk, 16)))

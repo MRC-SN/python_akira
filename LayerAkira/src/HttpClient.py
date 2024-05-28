@@ -14,7 +14,7 @@ from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, Order
     Constraints
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import random_int
-from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, FakeRouterData, \
+from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, RouterDetails, \
     UserInfo, BBO, \
     OrderStatus, OrderStateInfo
 from LayerAkira.src.common.common import Result
@@ -177,22 +177,20 @@ class AsyncApiHttpClient:
     async def place_order(self, jwt: str, order: Order) -> Result[int]:
         return await self._post_query(f'{self._http_host}/place_order', self._order_serder.serialize(order), jwt)
 
-    async def query_fake_router_data(self, jwt: str, order: Order) -> Result[FakeRouterData]:
+    async def query_router_details(self, jwt: str) -> Result[RouterDetails]:
         """
 
         :param jwt:  jwt token
-        :param order: Order that fake router would sign
-        :return: return data for order that should be inserted
-
+        :return: return data for order that should be inserted for router orders
         Flow ->
-            1) user sending unsigned order, fake router sign it and return FakeRouterData
+            1) user sending unsigned order, it return RouterDetails
             2) user fill order with this data and sign this order and place order to exchange
         """
-        res = await self._post_query(f'{self._http_host}/router_sign', self._order_serder.serialize(order), jwt)
+        res = await self._get_query(f'{self._http_host}/info/router_details', jwt)
         if res.data is None: return res
-        return Result(FakeRouterData(res.data['taker_pbips'], ContractAddress(res.data['fee_recipient']),
-                                     res.data['max_taker_pbips'], ContractAddress(res.data['router_signer']),
-                                     0, tuple(res.data['router_signature'])))
+        return Result(RouterDetails(res.data['routerTakerPbips'], res.data['routerMakerPbips'],
+                                    ContractAddress(res.data['routerSigner']),
+                                    ContractAddress(res.data['routerFeeRecipient'])))
 
     async def get_trading_acc_info(self, acc: ContractAddress, jwt: str) -> Result[UserInfo]:
         url = f'{self._http_host}/user/user_info?trading_account={acc}'

@@ -189,8 +189,8 @@ class AsyncApiHttpClient:
         res = await self._get_query(f'{self._http_host}/info/router_details', jwt)
         if res.data is None: return res
         return Result(RouterDetails(res.data['routerTakerPbips'], res.data['routerMakerPbips'],
-                                    ContractAddress(res.data['routerSigner']),
-                                    ContractAddress(res.data['routerFeeRecipient'])))
+                                    ContractAddress(res.data['routerFeeRecipient']),
+                                    ContractAddress(res.data['routerSigner'])))
 
     async def get_trading_acc_info(self, acc: ContractAddress, jwt: str) -> Result[UserInfo]:
         url = f'{self._http_host}/user/user_info?trading_account={acc}'

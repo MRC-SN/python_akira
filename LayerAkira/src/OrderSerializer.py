@@ -12,6 +12,7 @@ def serialize_fixed_fee(fee: FixedFee) -> Tuple[
         'recipient': fee.recipient.as_str(),
         'maker_pbips': fee.maker_pbips,
         'taker_pbips': fee.taker_pbips,
+        'apply_to_receipt_amount': fee.apply_to_receipt_amount
     }
 
 

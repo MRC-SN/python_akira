@@ -77,7 +77,7 @@ class AkiraFormatter:
     def _prepare_fixed_fee(fixed_fee: FixedFee):
         return {
             'recipient': fixed_fee.recipient.as_int(), 'maker_pbips': fixed_fee.maker_pbips,
-            'taker_pbips': fixed_fee.taker_pbips
+            'taker_pbips': fixed_fee.taker_pbips, 'apply_to_receipt_amount':fixed_fee.apply_to_receipt_amount
         }
 
     @staticmethod

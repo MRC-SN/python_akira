@@ -27,11 +27,13 @@ def get_order_typed_data(obj: Order, erc_to_addr, domain):
                 'recipient': obj.fee.trade_fee.recipient.as_int(),
                 'maker_pbips': obj.fee.trade_fee.maker_pbips,
                 'taker_pbips': obj.fee.trade_fee.taker_pbips,
+                'apply_to_receipt_amount': obj.fee.trade_fee.apply_to_receipt_amount
             },
             'router_fee': {
                 'recipient': obj.fee.router_fee.recipient.as_int(),
                 'maker_pbips': obj.fee.router_fee.maker_pbips,
                 'taker_pbips': obj.fee.router_fee.taker_pbips,
+                'apply_to_receipt_amount': obj.fee.router_fee.apply_to_receipt_amount
             },
             'gas_fee': {
                 'gas_per_action': obj.fee.gas_fee.gas_per_action,

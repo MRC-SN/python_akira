@@ -132,7 +132,7 @@ order_type = {
         {
             "name": "source",
             "type": "felt"
-        }
+        },
     ],
     "u256": [
         {
@@ -156,6 +156,10 @@ order_type = {
         {
             "name": "taker_pbips",
             "type": "felt"
+        },
+        {
+            "name": "apply_to_receipt_amount",
+            "type": "bool"
         }
     ],
     "Constraints": [

@@ -78,8 +78,7 @@ class WsClient:
                     logging.warning('Failed to query listen key')
                     return
                 if self._verbose: logging.info(f'Connecting {self._exchange_wss_host}')
-                async with websockets.connect(uri=self._exchange_wss_host,
-                                              extra_headers={'Authorization': listen_key, 'Signer': signer.as_str()},
+                async with websockets.connect(uri=f'{self._exchange_wss_host}?listenKey={listen_key}&signer={signer.as_str()}',
                                               **kwargs) as ws:
                     self.ws = ws
                     if self._verbose: logging.info(f'Connected to {self._exchange_wss_host}')

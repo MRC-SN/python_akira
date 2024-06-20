@@ -65,6 +65,5 @@ class SimpleOrderSerializer:
             "salt": data.salt,
             "sign": data.sign,
             "router_sign": data.router_sign,
-            'version': data.version,
             'source': data.source
         }

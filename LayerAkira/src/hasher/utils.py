@@ -3,6 +3,7 @@ from starknet_py.utils.typed_data import TypedData
 
 from LayerAkira.src.common.Requests import Order, IncreaseNonce, CancelRequest, Withdraw
 from LayerAkira.src.hasher.types import cancel_all_onchain_type, order_type, cancel_type, cancel_all_type, withdraw_type
+from common.ContractAddress import ContractAddress
 
 u256_serde = Uint256Serializer()
 
@@ -12,7 +13,7 @@ def make_u256_dict(w: int):
     return {'low': l[0], 'high': l[1]}
 
 
-def get_order_typed_data(obj: Order, erc_to_addr, domain):
+def get_order_typed_data(obj: Order, erc_to_addr, domain, exchange: ContractAddress):
     o = {
         'maker': obj.maker.as_int(), 'price': make_u256_dict(obj.price),
         'qty': {
@@ -62,7 +63,7 @@ def get_order_typed_data(obj: Order, erc_to_addr, domain):
             'to_ecosystem_book': obj.flags.to_ecosystem_book,
             'external_funds': obj.flags.external_funds,
         },
-        'version': obj.version,
+        'exchange': exchange.as_int(),
         'source': obj.source
     }
     return TypedData.from_dict(
@@ -106,7 +107,7 @@ def cancel_typed_data(obj: CancelRequest, domain):
     return data
 
 
-def withdraw_typed_data(withdraw: Withdraw, erc_to_addr, domain):
+def withdraw_typed_data(withdraw: Withdraw, erc_to_addr, domain, exchange: ContractAddress):
     gas_fee = withdraw.gas_fee
     return TypedData.from_dict(
         {"domain": {"name": domain.name, "version": domain.version, "chainId": domain.chain_id},
@@ -122,4 +123,5 @@ def withdraw_typed_data(withdraw: Withdraw, erc_to_addr, domain):
                 'r0': make_u256_dict(gas_fee.conversion_rate[0]), 'r1': make_u256_dict(gas_fee.conversion_rate[1])
             },
             'receiver': withdraw.receiver.as_int(),
+            'exchange': exchange.as_int()
         }})

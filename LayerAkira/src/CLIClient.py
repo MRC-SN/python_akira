@@ -91,7 +91,7 @@ class CLIClient:
         contract_client = AkiraExchangeClient(node_client, self.cli_cfg.exchange_address, erc_to_addr)
         await contract_client.init()
 
-        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain)
+        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.exchange_address)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
         api_client = AsyncApiHttpClient(sn_hasher, erc_to_addr, self.cli_cfg.http, self.cli_cfg.verbose)
 
@@ -99,7 +99,7 @@ class CLIClient:
                                                self.cli_cfg.exchange_address, erc_to_addr,
                                                self._erc_to_decimals,
                                                self.cli_cfg.chain_id,
-                                               self.cli_cfg.gas_multiplier, exchange_version=0,
+                                               self.cli_cfg.gas_multiplier,
                                                verbose=self.cli_cfg.verbose)
 
         await self.exchange_client.init()
@@ -264,7 +264,7 @@ class CLIClient:
             return await client.get_snapshot(trading_account, b, q, is_ecosystem_book)
 
         elif command.startswith('place_order'):
-            ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount = args
+            ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount, apply_to_receipt_amount, gas_token = args
             min_receive_amount = str(min_receive_amount)
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
@@ -276,13 +276,21 @@ class CLIClient:
             min_receive_amount = precise_to_price_convert(min_receive_amount,
                                                           self._erc_to_decimals[base] if side == 'BUY'
                                                           else self._erc_to_decimals[quote])
-
+            apply_to_receipt_amount = False if apply_to_receipt_amount.strip() == 'F_FEE_ON_SPEND' else True
+            gas_token = ERC20Token(gas_token)
+            if gas_token != ERC20Token.STRK:
+                rate = await client.get_conversion_rate(trading_account, gas_token)
+                fee = GasFee(gas_fee_steps['swap'][ecosystem], gas_token, client.gas_price, rate.data)
+            else:
+                fee = GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][ecosystem])
             return await client.place_order(trading_account, TradedPair(base, quote),
                                             px, qty_base, qty_quote, side, type, bool(int(post_only)),
                                             bool(int(full_fill)),
                                             bool(int(best_lvl)), ecosystem, trading_account,
-                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][ecosystem]),
-                                            stp=int(stp), external_funds=external, min_receive_amount=min_receive_amount
+                                            fee,
+                                            stp=int(stp), external_funds=external,
+                                            min_receive_amount=min_receive_amount,
+                                            apply_fixed_fees_to_receipt=apply_to_receipt_amount
                                             )
 
         elif command.startswith('cancel_order'):

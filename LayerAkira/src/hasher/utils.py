@@ -3,7 +3,7 @@ from starknet_py.utils.typed_data import TypedData
 
 from LayerAkira.src.common.Requests import Order, IncreaseNonce, CancelRequest, Withdraw
 from LayerAkira.src.hasher.types import cancel_all_onchain_type, order_type, cancel_type, cancel_all_type, withdraw_type
-from common.ContractAddress import ContractAddress
+from LayerAkira.src.common.ContractAddress import ContractAddress
 
 u256_serde = Uint256Serializer()
 

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Dict, Union
 
@@ -28,12 +29,12 @@ class SnTypedPedersenHasher:
             data = withdraw_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
         elif isinstance(obj, Order):
             data = get_order_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
-
+            logging.info(f'{obj.price,obj.qty}:::: data {data.message}')
         elif isinstance(obj, IncreaseNonce):
             data = increase_nonce_typed_data(obj, self._erc_to_addr, self._domain)
             return data.message_hash(obj.maker.as_int())
         elif isinstance(obj, CancelRequest):
-            data = cancel_typed_data(obj, self._domain)
+            data = cancel_typed_data(obj, self._erc_to_addr, self._domain)
         else:
             raise Exception(f"Unknown object type {obj} {type(obj)}")
         return data.message_hash(obj.maker.as_int())

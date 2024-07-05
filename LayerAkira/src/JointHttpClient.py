@@ -16,7 +16,7 @@ from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
-from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode, Quantity, Constraints
+from LayerAkira.src.common.Requests import Withdraw, Order, OrderFlags, STPMode, Quantity, Constraints, SpotTicker
 from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, Snapshot, UserInfo, BBO
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import Result
@@ -150,7 +150,7 @@ class JointHttpClient:
         if result.data is not None: self.gas_price = int(result.data * self._gas_multiplier)
         return result
 
-    async def get_conversion_rate(self,acc: ContractAddress, token:ERC20Token) -> Result[Tuple[int, int]]:
+    async def get_conversion_rate(self, acc: ContractAddress, token: ERC20Token) -> Result[Tuple[int, int]]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.get_conversion_rate(token, jwt)
 
@@ -336,9 +336,11 @@ class JointHttpClient:
         order = await self._spawn_order(acc, px=px, qty_base=qty_base, qty_quote=qty_quote, maker=maker,
                                         order_flags=order_flags, ticker=ticker,
                                         fee=OrderFee(
-                                            FixedFee(self.fee_recipient, *info.fees[ticker], apply_fixed_fees_to_receipt),
-                                            FixedFee(ZERO_ADDRESS, 0, 0, apply_fixed_fees_to_receipt) if router_fee is None else router_fee,
-                                            gas_fee,), nonce=info.nonce,
+                                            FixedFee(self.fee_recipient, *info.fees[ticker],
+                                                     apply_fixed_fees_to_receipt),
+                                            FixedFee(ZERO_ADDRESS, 0, 0,
+                                                     apply_fixed_fees_to_receipt) if router_fee is None else router_fee,
+                                            gas_fee, ), nonce=info.nonce,
                                         base_asset=10 ** self._token_to_decimals[ticker.base],
                                         router_signer=router_signer if router_signer is not None else ZERO_ADDRESS,
                                         stp=stp, min_receive_amount=min_receive_amount
@@ -349,11 +351,16 @@ class JointHttpClient:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.place_order(jwt, order.data)
 
-    async def cancel_order(self, acc: ContractAddress, maker: ContractAddress, order_hash: Optional[int]) -> Result[
+    async def cancel_order(self, acc: ContractAddress, maker: ContractAddress, order_hash: int) -> Result[
         int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.cancel_order(pk, jwt, maker, order_hash)
+
+    async def cancel_all_orders(self, acc: ContractAddress, maker: ContractAddress, ticker: SpotTicker) -> Result[int]:
+        jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        return await self._api_client.cancel_all_orders(pk, jwt, maker, ticker)
 
     async def increase_nonce(self, acc: ContractAddress, maker: ContractAddress, new_nonce: int, gas_fee: GasFee) -> \
             Result[int]:

@@ -1,9 +1,9 @@
 from typing import Dict, Tuple, Union
 
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.FeeTypes import FixedFee, GasFee
 from LayerAkira.src.common.Requests import Order
+from LayerAkira.src.common.common import precise_from_price_to_str_convert
 
 
 def serialize_fixed_fee(fee: FixedFee) -> Tuple[
@@ -16,27 +16,32 @@ def serialize_fixed_fee(fee: FixedFee) -> Tuple[
     }
 
 
-def serialize_gas_fee(gas_fee: GasFee, erc_to_addr: Dict[ERC20Token, ContractAddress]) -> Tuple[bool, Union[Dict, str]]:
+def serialize_gas_fee(gas_fee: GasFee, erc_to_decimals, base_token: ERC20Token = ERC20Token.STRK) -> Tuple[
+    bool, Union[Dict, str]]:
     return True, {
         "gas_per_action": gas_fee.gas_per_action,
-        'fee_token': erc_to_addr[gas_fee.fee_token].as_str(),
-        'max_gas_price': gas_fee.max_gas_price,
-        'conversion_rate': gas_fee.conversion_rate
+        'fee_token': gas_fee.fee_token,
+        'max_gas_price': precise_from_price_to_str_convert(gas_fee.max_gas_price, erc_to_decimals[base_token]),
+        'conversion_rate': [
+            precise_from_price_to_str_convert(gas_fee.conversion_rate[0], erc_to_decimals[base_token]),
+            precise_from_price_to_str_convert(gas_fee.conversion_rate[1], erc_to_decimals[gas_fee.fee_token])
+        ]
     }
 
 
 class SimpleOrderSerializer:
-    def __init__(self, erc20_to_addr: Dict[ERC20Token, ContractAddress]):
-        self._erc20_to_addr = erc20_to_addr
+    def __init__(self, erc_to_decimals: Dict[ERC20Token, int]):
+        self._erc_to_decimals = erc_to_decimals
 
     def serialize(self, data: Order):
         return {
             'maker': data.maker.as_str(),
-            'price': str(data.price),
+            'price': precise_from_price_to_str_convert(data.price, self._erc_to_decimals[data.ticker.quote]),
             'qty': {
-                'base_qty': str(data.qty.base_qty),
-                'quote_qty': str(data.qty.quote_qty),
-                'base_asset': str(data.qty.base_asset),
+                'base_qty': precise_from_price_to_str_convert(data.qty.base_qty,
+                                                              self._erc_to_decimals[data.ticker.base]),
+                'quote_qty': precise_from_price_to_str_convert(data.qty.quote_qty,
+                                                               self._erc_to_decimals[data.ticker.quote]),
             },
             'constraints': {
                 "created_at": data.constraints.created_at,
@@ -45,7 +50,9 @@ class SimpleOrderSerializer:
                 "nonce": hex(data.constraints.nonce),
                 'stp': data.constraints.stp.value,
                 'duration_valid': data.constraints.duration_valid,
-                'min_receive_amount': data.constraints.min_receive_amount
+                'min_receive_amount': precise_from_price_to_str_convert(data.constraints.min_receive_amount,
+                                                                        self._erc_to_decimals[data.ticker.quote] if data.flags.is_sell_side else self._erc_to_decimals[data.ticker.base]
+                                                                        )
             },
             'flags': {
                 "full_fill_only": data.flags.full_fill_only,
@@ -56,11 +63,11 @@ class SimpleOrderSerializer:
                 "is_market_order": data.flags.is_market_order,
                 'external_funds': data.flags.external_funds
             },
-            "ticker": (self._erc20_to_addr[data.ticker.base].as_str(), self._erc20_to_addr[data.ticker.quote].as_str()),
+            "ticker": (data.ticker.base, data.ticker.quote),
             "fee": {
                 "trade_fee": serialize_fixed_fee(data.fee.trade_fee)[1],
                 'router_fee': serialize_fixed_fee(data.fee.router_fee)[1],
-                'gas_fee': serialize_gas_fee(data.fee.gas_fee, self._erc20_to_addr)[1],
+                'gas_fee': serialize_gas_fee(data.fee.gas_fee, self._erc_to_decimals)[1],
             },
             "salt": data.salt,
             "sign": data.sign,

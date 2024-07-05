@@ -89,7 +89,7 @@ def increase_nonce_typed_data(obj: IncreaseNonce, erc_to_addr, domain):
     )
 
 
-def cancel_typed_data(obj: CancelRequest, domain):
+def cancel_typed_data(obj: CancelRequest, erc_to_addr, domain):
     if obj.order_hash is not None and obj.order_hash != 0:
         data = TypedData.from_dict(
             {"domain": {"name": domain.name, "version": domain.version,
@@ -103,9 +103,13 @@ def cancel_typed_data(obj: CancelRequest, domain):
                         "chainId": domain.chain_id},
              "types": cancel_all_type, "primaryType": "CancelAllOrders",
              "message": {'maker': obj.maker.as_int(),
+                         'ticker': {
+                             'base': erc_to_addr[obj.exchange_ticker.pair.base].as_int(),
+                             'quote': erc_to_addr[obj.exchange_ticker.pair.quote].as_int(),
+                             'to_ecosystem_book': obj.exchange_ticker.is_ecosystem_book,
+                         },
                          'salt': obj.salt}})
     return data
-
 
 def withdraw_typed_data(withdraw: Withdraw, erc_to_addr, domain, exchange: ContractAddress):
     gas_fee = withdraw.gas_fee

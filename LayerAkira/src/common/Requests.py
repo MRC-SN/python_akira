@@ -18,6 +18,17 @@ class Side(Enum):
         return str(self.value)
 
 
+@dataclass(frozen=True)
+class SpotTicker:
+    """
+    A  data class that represents a spot ticker.
+    Attributes:
+        pair (TradedPair): The traded pair associated with this ticker.
+        is_ecosystem_book (bool): A flag indicating if it is an ecosystem book or router.
+    """
+    pair: TradedPair
+    is_ecosystem_book: bool
+
 @dataclass
 class OrderFlags:
     full_fill_only: bool
@@ -77,7 +88,7 @@ class Order:
     qty: Quantity
     ticker: TradedPair
     fee: OrderFee
-    constraints:Constraints
+    constraints: Constraints
     salt: int
     flags: OrderFlags
     sign: Tuple[int, int]
@@ -142,6 +153,7 @@ class Order:
 class CancelRequest:
     maker: ContractAddress
     order_hash: Optional[int]
+    exchange_ticker: Optional[SpotTicker]  # ignored in case order hash defined
     salt: int
     sign: Tuple[int, int]
 

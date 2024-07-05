@@ -12,13 +12,13 @@ from LayerAkira.src.common.TradedPair import TradedPair
 class UserInfo:
     nonce: int
     fees: Dict[TradedPair, Tuple[int, int]]
-    balances: Dict[ERC20Token, Tuple[int, int]]
+    balances: Dict[ERC20Token, Tuple[str, str]]
 
 
 @dataclass
 class RouterDetails:
     taker_pbips: int
-    maker_pbips:int
+    maker_pbips: int
     fee_recipient: ContractAddress
     router_signer: ContractAddress
 
@@ -104,6 +104,12 @@ class ExecReport:
     is_sell_side: bool
     status: OrderStatus
     mather_result: OrderMatcherResult
+
+
+@dataclass
+class CancelAllReport:
+    client: ContractAddress
+    hash: int
 
 
 @dataclass

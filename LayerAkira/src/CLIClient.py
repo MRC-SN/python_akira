@@ -19,6 +19,7 @@ from LayerAkira.src.common.FeeTypes import GasFee
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert
 from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher
+from LayerAkira.src.common.Requests import SpotTicker
 
 
 def GAS_FEE_ACTION(gas: int, fix_steps):
@@ -93,7 +94,7 @@ class CLIClient:
 
         sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.exchange_address)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
-        api_client = AsyncApiHttpClient(sn_hasher, erc_to_addr, self.cli_cfg.http, self.cli_cfg.verbose)
+        api_client = AsyncApiHttpClient(sn_hasher, self._erc_to_decimals, self.cli_cfg.http, self.cli_cfg.verbose)
 
         self.exchange_client = JointHttpClient(node_client, api_client, contract_client,
                                                self.cli_cfg.exchange_address, erc_to_addr,
@@ -124,7 +125,7 @@ class CLIClient:
         async def issue_listen_key(signer: ContractAddress):
             return (await self.exchange_client.query_listen_key(signer)).data
 
-        ws = WsClient(issue_listen_key, self.cli_cfg.wss, verbose=self.cli_cfg.verbose)
+        ws = WsClient(self._erc_to_decimals, issue_listen_key, self.cli_cfg.wss, verbose=self.cli_cfg.verbose)
         trading_account = self.cli_cfg.trading_account[0]
         presets_commands = [
             ['set_account', self.cli_cfg.trading_account],
@@ -251,7 +252,7 @@ class CLIClient:
             return await client.get_orders(trading_account, int(args[0]), int(args[1]), int(args[2]))
 
         elif command.startswith('get_order'):
-            return await client.get_order(trading_account, int(args[0]))
+            return await client.get_order(trading_account, int(args[0],16 if args[0].startswith('0x') else 10))
 
         elif command.startswith('get_bbo'):
             b, q = args[0].split('/')
@@ -294,10 +295,16 @@ class CLIClient:
                                             )
 
         elif command.startswith('cancel_order'):
-            return await client.cancel_order(trading_account, trading_account, int(args[0]))
+            return await client.cancel_order(trading_account, trading_account,
+                                             int(args[0], 16 if args[0].startswith('0x') else 10))
 
         elif command.startswith('cancel_all'):
-            return await client.cancel_order(trading_account, trading_account, None)
+            ticker, ecosystem = args
+            base, quote = ticker.split('/')
+            base, quote = ERC20Token(base), ERC20Token(quote)
+            ecosystem = ecosystem == 'ECOSYSTEM'
+            return await client.cancel_all_orders(trading_account, trading_account,
+                                                  SpotTicker(TradedPair(base, quote), ecosystem))
 
         elif command.startswith('increase_nonce'):
             return await client.increase_nonce(trading_account, trading_account, int(args[0]),

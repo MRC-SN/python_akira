@@ -324,6 +324,20 @@ cancel_all_type = {
             "type": "felt"
         }
     ],
+    "Ticker": [
+        {
+            "name": "base",
+            "type": "felt"
+        },
+        {
+            "name": "quote",
+            "type": "felt"
+        },
+        {
+            "name": "to_ecosystem_book",
+            "type": "bool"
+        },
+    ],
     "CancelAllOrders": [
         {
             "name": "maker",
@@ -332,10 +346,13 @@ cancel_all_type = {
         {
             "name": "salt",
             "type": "felt"
+        },
+        {
+            "name": "ticker",
+            "type": "Ticker"
         }
     ]
 }
-
 cancel_all_onchain_type = {
     "StarkNetDomain": [
         {

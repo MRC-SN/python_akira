@@ -144,7 +144,7 @@ class AsyncApiHttpClient:
         req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
         data = {'maker': req.maker.as_str(), 'sign': req.sign,
                 'new_nonce': new_nonce,
-                'salt': req.salt, 'gas_fee': serialize_gas_fee(gas_fee)
+                'salt': req.salt, 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
                 }
         return await self._post_query(f'{self._http_host}/increase_nonce', data, jwt)
 
@@ -189,7 +189,7 @@ class AsyncApiHttpClient:
         data = {'maker': req.maker.as_str(), 'sign': req.sign, 'token': req.token,
                 'salt': req.salt, 'receiver': req.receiver.as_str(),
                 'amount': precise_from_price_to_str_convert(req.amount, self._erc_to_decimals[req.token]),
-                'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)
+                'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
                 }
         return await self._post_query(f'{self._http_host}/withdraw', data, jwt)
 

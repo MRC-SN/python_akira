@@ -10,9 +10,9 @@ import websockets
 
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, \
-    OrderMatcherResult, CancelAllReport
+    OrderMatcherResult, CancelAllReport, WrappedPrivateReport
+from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert
 
 
@@ -230,15 +230,39 @@ class WsClient:
                          d['time'])
         elif stream == Stream.FILLS:
             if 'hash' in d:
-                return ExecReport(ContractAddress(data['client']), pair,
-                                  precise_to_price_convert(d['fill_price'], q_decimals),
-                                  precise_to_price_convert(d['fill_base_qty'], b_decimals),
-                                  precise_to_price_convert(d['fill_quote_qty'], q_decimals),
-                                  precise_to_price_convert(d['acc_base_qty'], b_decimals),
-                                  precise_to_price_convert(d['acc_quote_qty'], q_decimals),
-                                  int(d['hash'], 16),
-                                  d['is_sell_side'],
-                                  OrderStatus(d['status']),
-                                  OrderMatcherResult(d['matcher_result']))
+                res = ExecReport(
+                    ContractAddress(d['client']), pair,
+                    precise_to_price_convert(d['fill_price'], q_decimals),
+                    precise_to_price_convert(d['fill_base_qty'], b_decimals),
+                    precise_to_price_convert(d['fill_quote_qty'], q_decimals),
+                    precise_to_price_convert(d['acc_base_qty'], b_decimals),
+                    precise_to_price_convert(d['acc_quote_qty'], q_decimals),
+                    int(d['hash'], 16),
+                    d['is_sell_side'],
+                    OrderStatus(d['status']),
+                    OrderMatcherResult(d['matcher_result'])
+                )
+                if d.get('error_code_orderbook') is not None:
+                    res.error_code_orderbook = d['error_code_orderbook']
+                return res
+            elif 'cancel_ticker_hash' in d:
+                res = CancelAllReport(
+                    ContractAddress(d['client']),
+                    int(d['cancel_ticker_hash'], 16)
+                )
+                if d.get('error_code_orderbook') is not None:
+                    res.error_code_orderbook = d['error_code_orderbook']
+                return res
+            elif 'report_type' in d and 'entity_hash' in d:
+                res = WrappedPrivateReport(
+                    d['report_type'],
+                    ContractAddress(d['client']),
+                    int(d['req_hash'], 16),
+                    int(d['entity_hash'], 16)
+                )
+                if d.get('error_code_orderbook') is not None:
+                    res.error_code_orderbook = d['error_code_orderbook']
+                return res
             else:
-                return CancelAllReport(ContractAddress(data['client']), int(d['cancel_ticker_hash'], 16))
+                logging.error(f'Unhandled packet in fills stream! Data: {d}')
+                return None

@@ -152,15 +152,18 @@ class CLIClient:
             # ['get_book', ['ETH/USDC', '1']],
             #
             # ['get_order', ['42']],
-            # ['get_orders', ['1', '20', '0']],
-            # #
-            # # ['withdraw', ['USDC', '4']],
             # ['cancel_all', []],
+            # ['cancel_all', ['AETH/AUSDC', 'ROUTER']],
+            # ['cancel_all', ['AUSDC/AUSDT', 'ROUTER']],
             # ['refresh_chain_info', []],
             # ['user_info', []],
 
-            ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
-                             'INTERNAL', 0]],
+            # ['place_order', ['AETH/AUSDC', '3600', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
+            #                  'INTERNAL', 0, 'F_FEE_ON_RECEiVE', 'STRK']],
+            # ['withdraw', ['USDC', '4']],
+            # ['increase_nonce', ['1']],
+            # cancel_order hhh
+
             # ['place_order',
             #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
             #   '0']],

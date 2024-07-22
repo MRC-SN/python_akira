@@ -104,12 +104,23 @@ class ExecReport:
     is_sell_side: bool
     status: OrderStatus
     mather_result: OrderMatcherResult
+    error_code_orderbook: Optional[str] = None
 
 
 @dataclass
 class CancelAllReport:
     client: ContractAddress
     hash: int
+    error_code_orderbook: Optional[str] = None
+
+
+@dataclass
+class WrappedPrivateReport:
+    report_type: str
+    client_id: ContractAddress
+    req_hash: int
+    entity_hash: int
+    error_code_orderbook: str = None
 
 
 @dataclass

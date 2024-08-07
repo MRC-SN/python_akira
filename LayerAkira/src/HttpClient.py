@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, List, Union, Tuple
 
 from aiohttp import ClientSession
 from starknet_py.hash.utils import message_signature
@@ -79,6 +79,11 @@ class AsyncApiHttpClient:
         gas_px = await self._get_query(f'{self._http_host}/gas/price', jwt)
         if gas_px.data is not None: gas_px.data = int(gas_px.data)
         return gas_px
+
+    async def get_conversion_rate(self,token:ERC20Token, jwt: str) -> Result[Tuple[int, int]]:
+        rate = await self._get_query(f'{self._http_host}/info/conversion_rate?token={token.value}', jwt)
+        if rate.data is not None: rate.data = (int(rate.data[0]), int(rate.data[1]))
+        return rate
 
     async def get_order(self, acc: ContractAddress, jwt: str, order_hash: int, mode: int = 1) -> Result[
         Union[OrderInfo, ReducedOrderInfo]]:
@@ -174,7 +179,7 @@ class AsyncApiHttpClient:
     async def query_listen_key(self, jwt: str) -> Result[str]:
         return await self._get_query(f'{self._http_host}/user/listen_key', jwt)
 
-    async def place_order(self, jwt: str, order: Order) -> Result[int]:
+    async def place_order(self, jwt: str, order: Order) -> Result[str]:
         return await self._post_query(f'{self._http_host}/place_order', self._order_serder.serialize(order), jwt)
 
     async def query_router_details(self, jwt: str) -> Result[RouterDetails]:
@@ -275,7 +280,6 @@ class AsyncApiHttpClient:
                     OrderFlags(*[bool(x) for x in d['flags']]),
                     (0, 0),
                     (0, 0),
-                    d['version'],
                     d['source']
                 ),
                 state_info

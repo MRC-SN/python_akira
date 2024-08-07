@@ -37,6 +37,10 @@ withdraw_type = {
         {
             "name": "receiver",
             "type": "felt"
+        },
+        {
+            "name": "exchange",
+            "type": "felt"
         }
     ],
     "u256": [
@@ -126,7 +130,7 @@ order_type = {
             "type": "OrderFlags"
         },
         {
-            "name": "version",
+            "name": "exchange",
             "type": "felt"
         },
         {

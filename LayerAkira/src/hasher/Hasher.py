@@ -18,15 +18,16 @@ class AppDomain:
 class SnTypedPedersenHasher:
     """Mirrors hashing of sn function for our objects"""
 
-    def __init__(self, erc_to_addr: Dict[ERC20Token, ContractAddress], domain: AppDomain):
+    def __init__(self, erc_to_addr: Dict[ERC20Token, ContractAddress], domain: AppDomain,exchange:ContractAddress):
         self._erc_to_addr = erc_to_addr
         self._domain = domain
+        self._exchange = exchange
 
     def hash(self, obj: Union[Withdraw, CancelRequest, Order, IncreaseNonce]) -> int:
         if isinstance(obj, Withdraw):
-            data = withdraw_typed_data(obj, self._erc_to_addr, self._domain)
+            data = withdraw_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
         elif isinstance(obj, Order):
-            data = get_order_typed_data(obj, self._erc_to_addr, self._domain)
+            data = get_order_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
 
         elif isinstance(obj, IncreaseNonce):
             data = increase_nonce_typed_data(obj, self._erc_to_addr, self._domain)

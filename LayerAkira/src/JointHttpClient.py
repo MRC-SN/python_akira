@@ -10,11 +10,8 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 
-from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
-from LayerAkira.src.AkiraFormatter import AkiraFormatter
 from LayerAkira.src.ERC20Client import ERC20Client
-from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.HttpClient import AsyncApiHttpClient
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
@@ -44,7 +41,6 @@ class JointHttpClient:
                  token_to_decimals: Dict[ERC20Token, int],
                  chain=StarknetChainId.SEPOLIA,
                  gas_multiplier=1.25,
-                 exchange_version=0,
                  verbose=False):
         """
 
@@ -69,7 +65,7 @@ class JointHttpClient:
         self._exchange_addr = exchange_addr
 
         self._tokens_to_addr: Dict[ERC20Token, ContractAddress] = erc_to_addr
-        self._hasher = SnTypedPedersenHasher(erc_to_addr, AppDomain(chain.value))
+        self._hasher = SnTypedPedersenHasher(erc_to_addr, AppDomain(chain.value), exchange_addr)
 
         self._address_to_account: Dict[ContractAddress, Account] = {}
         self._tokens_to_erc: Dict[ERC20Token, ERC20Client] = {}
@@ -89,7 +85,6 @@ class JointHttpClient:
             lambda: UserInfo(0, defaultdict(lambda: (0, 0)), defaultdict(lambda: (0, 0))))
 
         self._verbose = verbose
-        self._exchange_version = exchange_version
 
     async def handle_new_keys(self, acc_addr: ContractAddress, pub: ContractAddress, priv: str):
         """
@@ -154,6 +149,10 @@ class JointHttpClient:
         result = await self._api_client.query_gas_price(jwt)
         if result.data is not None: self.gas_price = int(result.data * self._gas_multiplier)
         return result
+
+    async def get_conversion_rate(self,acc: ContractAddress, token:ERC20Token) -> Result[Tuple[int, int]]:
+        jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
+        return await self._api_client.get_conversion_rate(token, jwt)
 
     async def apply_onchain_withdraw(self, acc_addr: ContractAddress, token: ERC20Token, key: int) -> Optional[str]:
         account = self._address_to_account[acc_addr]
@@ -327,8 +326,8 @@ class JointHttpClient:
                           post_only: bool, full_fill: bool,
                           best_lvl: bool, ecosystem: bool, maker: ContractAddress, gas_fee: GasFee,
                           router_fee: Optional[FixedFee] = None, router_signer: Optional[ContractAddress] = None,
-                          stp: int = 0, external_funds=False, min_receive_amount=0) -> \
-            Result[int]:
+                          stp: int = 0, external_funds=False, min_receive_amount=0, apply_fixed_fees_to_receipt=True) -> \
+            Result[str]:
         info = self._trading_acc_to_user_info[acc]
 
         order_flags = OrderFlags(full_fill, best_lvl, post_only, side == 'SELL', type == 'MARKET', ecosystem,
@@ -337,9 +336,9 @@ class JointHttpClient:
         order = await self._spawn_order(acc, px=px, qty_base=qty_base, qty_quote=qty_quote, maker=maker,
                                         order_flags=order_flags, ticker=ticker,
                                         fee=OrderFee(
-                                            FixedFee(self.fee_recipient, *info.fees[ticker]),
-                                            FixedFee(ZERO_ADDRESS, 0, 0) if router_fee is None else router_fee,
-                                            gas_fee), nonce=info.nonce,
+                                            FixedFee(self.fee_recipient, *info.fees[ticker], apply_fixed_fees_to_receipt),
+                                            FixedFee(ZERO_ADDRESS, 0, 0, apply_fixed_fees_to_receipt) if router_fee is None else router_fee,
+                                            gas_fee,), nonce=info.nonce,
                                         base_asset=10 ** self._token_to_decimals[ticker.base],
                                         router_signer=router_signer if router_signer is not None else ZERO_ADDRESS,
                                         stp=stp, min_receive_amount=min_receive_amount
@@ -386,10 +385,10 @@ class JointHttpClient:
                       ),
                       random_int(),
                       kwargs['order_flags'],
-                      (1, 1), (0, 0), self._exchange_version
+                      (1, 1), (0, 0)
                       )
         if order.is_passive_order():
-            order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0)
+            order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0, order.fee.router_fee.apply_to_receipt_amount)
             order.router_signer = ZERO_ADDRESS
 
         # router taker through router, if not explicitly specified

@@ -82,7 +82,6 @@ class Order:
     flags: OrderFlags
     sign: Tuple[int, int]
     router_sign: Tuple[int, int]
-    version: int
     source: str = 'layerakira'
 
     def __post_init__(self):

@@ -10,16 +10,15 @@ from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 
 from LayerAkira.src.AkiraExchangeClient import AkiraExchangeClient
-from LayerAkira.src.AkiraFormatter import AkiraFormatter
-from LayerAkira.src.Hasher import SnHasher
-from LayerAkira.src.JointHttpClient import JointHttpClient
 from LayerAkira.src.HttpClient import AsyncApiHttpClient
+from LayerAkira.src.JointHttpClient import JointHttpClient
+from LayerAkira.src.WsClient import WsClient, Stream
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
-from LayerAkira.src.common.TradedPair import TradedPair
-from LayerAkira.src.WsClient import WsClient, Stream
 from LayerAkira.src.common.FeeTypes import GasFee
+from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import precise_to_price_convert
+from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher
 
 
 def GAS_FEE_ACTION(gas: int, fix_steps):
@@ -86,14 +85,13 @@ class CLIClient:
     def __init__(self, cli_cfg_path: str):
         self.cli_cfg = parse_cli_cfg(cli_cfg_path)
 
-    async def start(self):
+    async def start(self, domain):
         node_client = FullNodeClient(node_url=self.cli_cfg.node)
         erc_to_addr = {token.symbol: token.address for token in self.cli_cfg.tokens}
         contract_client = AkiraExchangeClient(node_client, self.cli_cfg.exchange_address, erc_to_addr)
         await contract_client.init()
 
-        sn_hasher = SnHasher(AkiraFormatter(erc_to_addr),
-                             contract_client.akira.contract.data.parsed_abi.defined_structures)
+        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.exchange_address)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
         api_client = AsyncApiHttpClient(sn_hasher, erc_to_addr, self.cli_cfg.http, self.cli_cfg.verbose)
 
@@ -101,7 +99,7 @@ class CLIClient:
                                                self.cli_cfg.exchange_address, erc_to_addr,
                                                self._erc_to_decimals,
                                                self.cli_cfg.chain_id,
-                                               self.cli_cfg.gas_multiplier, exchange_version=0,
+                                               self.cli_cfg.gas_multiplier,
                                                verbose=self.cli_cfg.verbose)
 
         await self.exchange_client.init()
@@ -160,20 +158,19 @@ class CLIClient:
             # ['refresh_chain_info', []],
             # ['user_info', []],
 
-                 ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
-                              'INTERNAL', 0]],
-                # ['place_order',
-                #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
-                # ['place_order',
-                #  ['ETH/USDC', '249803.1', '0', '0.250000', 'BUY', 'LIMIT', '1', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
-                # ['place_order',
-                #  ['ETH/USDC', '244003', '0', '0.488006', 'SELL', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
-                #   '0']],
+            ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
+                             'INTERNAL', 0]],
+            # ['place_order',
+            #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
+            # ['place_order',
+            #  ['ETH/USDC', '249803.1', '0', '0.250000', 'BUY', 'LIMIT', '1', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
+            # ['place_order',
+            #  ['ETH/USDC', '244003', '0', '0.488006', 'SELL', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
+            #   '0']],
 
         ]
-
 
         for command, args in presets_commands:
             try:
@@ -267,7 +264,7 @@ class CLIClient:
             return await client.get_snapshot(trading_account, b, q, is_ecosystem_book)
 
         elif command.startswith('place_order'):
-            ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount = args
+            ticker, px, qty_base, qty_quote, side, type, post_only, full_fill, best_lvl, ecosystem, stp, external, min_receive_amount, apply_to_receipt_amount, gas_token = args
             min_receive_amount = str(min_receive_amount)
             base, quote = ticker.split('/')
             base, quote = ERC20Token(base), ERC20Token(quote)
@@ -279,13 +276,21 @@ class CLIClient:
             min_receive_amount = precise_to_price_convert(min_receive_amount,
                                                           self._erc_to_decimals[base] if side == 'BUY'
                                                           else self._erc_to_decimals[quote])
-
+            apply_to_receipt_amount = False if apply_to_receipt_amount.strip() == 'F_FEE_ON_SPEND' else True
+            gas_token = ERC20Token(gas_token)
+            if gas_token != ERC20Token.STRK:
+                rate = await client.get_conversion_rate(trading_account, gas_token)
+                fee = GasFee(gas_fee_steps['swap'][ecosystem], gas_token, client.gas_price, rate.data)
+            else:
+                fee = GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][ecosystem])
             return await client.place_order(trading_account, TradedPair(base, quote),
                                             px, qty_base, qty_quote, side, type, bool(int(post_only)),
                                             bool(int(full_fill)),
                                             bool(int(best_lvl)), ecosystem, trading_account,
-                                            GAS_FEE_ACTION(client.gas_price, gas_fee_steps['swap'][ecosystem]),
-                                            stp=int(stp), external_funds=external, min_receive_amount=min_receive_amount
+                                            fee,
+                                            stp=int(stp), external_funds=external,
+                                            min_receive_amount=min_receive_amount,
+                                            apply_fixed_fees_to_receipt=apply_to_receipt_amount
                                             )
 
         elif command.startswith('cancel_order'):
@@ -309,4 +314,3 @@ class CLIClient:
             return await client.query_listen_key(trading_account)
         else:
             print(f'Unknown command {command} with args {args}')
-

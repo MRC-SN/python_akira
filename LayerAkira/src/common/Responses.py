@@ -16,13 +16,11 @@ class UserInfo:
 
 
 @dataclass
-class FakeRouterData:
+class RouterDetails:
     taker_pbips: int
+    maker_pbips:int
     fee_recipient: ContractAddress
-    max_taker_pbips: int
     router_signer: ContractAddress
-    maker_pbips: int
-    router_signature: Tuple[int, int]
 
 
 @dataclass
@@ -90,6 +88,7 @@ class ReducedOrderInfo:
     order_flags: OrderFlags
     stp: STPMode
     expiration_time: int
+    source: str
 
 
 @dataclass

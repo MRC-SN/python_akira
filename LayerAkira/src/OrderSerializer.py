@@ -12,6 +12,7 @@ def serialize_fixed_fee(fee: FixedFee) -> Tuple[
         'recipient': fee.recipient.as_str(),
         'maker_pbips': fee.maker_pbips,
         'taker_pbips': fee.taker_pbips,
+        'apply_to_receipt_amount': fee.apply_to_receipt_amount
     }
 
 
@@ -31,17 +32,17 @@ class SimpleOrderSerializer:
     def serialize(self, data: Order):
         return {
             'maker': data.maker.as_str(),
-            'price': data.price,
+            'price': str(data.price),
             'qty': {
-                'base_qty': data.qty.base_qty,
-                'quote_qty': data.qty.quote_qty,
-                'base_asset': data.qty.base_asset,
+                'base_qty': str(data.qty.base_qty),
+                'quote_qty': str(data.qty.quote_qty),
+                'base_asset': str(data.qty.base_asset),
             },
             'constraints': {
                 "created_at": data.constraints.created_at,
                 'router_signer': data.constraints.router_signer.as_str(),
                 "number_of_swaps_allowed": data.constraints.number_of_swaps_allowed,
-                "nonce": data.constraints.nonce,
+                "nonce": hex(data.constraints.nonce),
                 'stp': data.constraints.stp.value,
                 'duration_valid': data.constraints.duration_valid,
                 'min_receive_amount': data.constraints.min_receive_amount
@@ -64,5 +65,5 @@ class SimpleOrderSerializer:
             "salt": data.salt,
             "sign": data.sign,
             "router_sign": data.router_sign,
-            'version': data.version,
+            'source': data.source
         }

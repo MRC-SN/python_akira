@@ -25,8 +25,6 @@ class ERC20Client:
         self._name_to_deser = {}
         self.token_contract: StarknetSmartContract = StarknetSmartContract(
             Contract(self._token_addr.as_int(), ERC20ABI, self._client))
-
-    async def init(self):
         contract = self.token_contract.contract
         for k, v in contract.data.parsed_abi.functions.items():
             self._name_to_deser[k] = serializer_for_payload(v.outputs).deserialize

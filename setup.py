@@ -15,7 +15,7 @@ with open(path.join(HERE, 'README.md'), encoding='utf-8') as f:
 # This call to setup() does all the work
 setup(
     name="LayerAkira",
-    version="1.0.0a41",
+    version="1.0.0a46",
     description="library for interaction with LayerAkira exchange",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -44,7 +44,7 @@ setup(
         'toml',
         'starknet-py>=0.22.0',
         'requests',
-        'aioconsole'
+        'aioconsole>=0.7.0'
     ]
 )
 

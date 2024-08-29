@@ -139,10 +139,14 @@ class WsClient:
             b, q = d['pair']['base'], d['pair']['quote']
             pair = TradedPair(ERC20Token(b), ERC20Token(q))
             stream_id = (hash((stream, hash(pair), d['ecosystem'])))
-            await self._subscribers[stream_id](self._parse_md(d, Stream(stream)))
+            data = self._parse_md(d, Stream(stream))
+            if data is not None:
+                await self._subscribers[stream_id](data)
         elif stream == Stream.FILLS:
             stream_id = hash((Stream.FILLS.value, ContractAddress(d['client'])))
-            await self._subscribers[stream_id](self._parse_md(d, Stream(stream)))
+            data = self._parse_md(d, Stream(stream))
+            if data is not None:
+                await self._subscribers[stream_id](data)
         else:
             logging.warning(f'Unknown packet {d}')
 
@@ -240,5 +244,11 @@ class WsClient:
                                   d['is_sell_side'],
                                   OrderStatus(d['status']),
                                   OrderMatcherResult(d['matcher_result']))
+            elif 'report_type' in d:
+                return None
             else:
-                return CancelAllReport(ContractAddress(data['client']), int(d['cancel_ticker_hash'], 16))
+                try:
+                    return CancelAllReport(ContractAddress(data['client']), int(d['cancel_ticker_hash'], 16))
+                except Exception as e:
+                    logging.exception(f'Failed to parse due {e} this\n: {data}')
+                    raise e

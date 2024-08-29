@@ -69,8 +69,8 @@ class SimpleOrderSerializer:
                 'router_fee': serialize_fixed_fee(data.fee.router_fee)[1],
                 'gas_fee': serialize_gas_fee(data.fee.gas_fee, self._erc_to_decimals)[1],
             },
-            "salt": data.salt,
-            "sign": data.sign,
-            "router_sign": data.router_sign,
+            "salt": hex(data.salt),
+            "sign": [hex(x) for x in data.sign],
+            "router_sign": [hex(x) for x in data.router_sign],
             'source': data.source
         }

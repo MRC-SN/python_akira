@@ -72,7 +72,7 @@ class AsyncApiHttpClient:
         url = f'{self._http_host}/sign/auth'
         msg_hash = get_typed_data(int(msg.data), chain_id).message_hash(account.as_int())
         return await self._post_query(url, {'msg': msg.data,
-                                            'signature': list(message_signature(msg_hash, int(pk, 16)))})
+                                            'signature': [hex(x) for x in list(message_signature(msg_hash, int(pk, 16)))]})
 
     async def query_gas_price(self, jwt: str) -> Result[int]:
         gas_px = await self._get_query(f'{self._http_host}/gas/price', jwt)
@@ -142,9 +142,9 @@ class AsyncApiHttpClient:
     async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee):
         req = IncreaseNonce(maker, new_nonce, gas_fee, random_int(), (0, 0))
         req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
-        data = {'maker': req.maker.as_str(), 'sign': req.sign,
+        data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign],
                 'new_nonce': new_nonce,
-                'salt': req.salt, 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
+                'salt': hex(req.salt), 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
                 }
         return await self._post_query(f'{self._http_host}/increase_nonce', data, jwt)
 
@@ -160,7 +160,7 @@ class AsyncApiHttpClient:
         req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
         return await self._post_query(
             f'{self._http_host}/cancel_order',
-            {'maker': req.maker.as_str(), 'sign': req.sign, 'order_hash': order_hash, 'salt': req.salt,
+            {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': hex(order_hash), 'salt': hex(req.salt),
              'ticker': {'base': '0x0', 'quote': '0x0', 'to_ecosystem_book': True}
              }, jwt)
 
@@ -176,7 +176,7 @@ class AsyncApiHttpClient:
         req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
         return await self._post_query(
             f'{self._http_host}/cancel_all',
-            {'maker': req.maker.as_str(), 'sign': req.sign, 'order_hash': 0, 'salt': req.salt,
+            {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': 0, 'salt': hex(req.salt),
              'ticker': {'base': ticker.pair.base, 'quote': ticker.pair.quote,
                         'to_ecosystem_book': ticker.is_ecosystem_book}
              }, jwt)
@@ -186,8 +186,8 @@ class AsyncApiHttpClient:
         req = Withdraw(maker, token, amount, random_int(), (0, 0), gas_fee, maker)
 
         req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
-        data = {'maker': req.maker.as_str(), 'sign': req.sign, 'token': req.token,
-                'salt': req.salt, 'receiver': req.receiver.as_str(),
+        data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'token': req.token,
+                'salt': hex(req.salt), 'receiver': req.receiver.as_str(),
                 'amount': precise_from_price_to_str_convert(req.amount, self._erc_to_decimals[req.token]),
                 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
                 }

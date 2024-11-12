@@ -6,6 +6,7 @@ from typing import Optional
 
 import toml
 from aioconsole import ainput
+from starknet_py.hash.utils import message_signature
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models import StarknetChainId
 
@@ -94,7 +95,8 @@ class CLIClient:
 
         sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.exchange_address)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
-        api_client = AsyncApiHttpClient(sn_hasher, self._erc_to_decimals, self.cli_cfg.http, self.cli_cfg.verbose)
+        api_client = AsyncApiHttpClient(sn_hasher, lambda msg_hash, pk: message_signature(msg_hash, pk),
+                                        self._erc_to_decimals, self.cli_cfg.http, self.cli_cfg.verbose)
 
         self.exchange_client = JointHttpClient(node_client, api_client, contract_client,
                                                self.cli_cfg.exchange_address, erc_to_addr,
@@ -159,8 +161,8 @@ class CLIClient:
             # ['refresh_chain_info', []],
             # ['user_info', []],
 
-            ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
-                             'INTERNAL', 0]],
+            # ['place_order', ['ETH/STRK', '250000', '0', '0.175000', 'SELL', 'LIMIT', '1', '0', '0', 'ROUTER', 0,
+            #                  'INTERNAL', 0]],
             # ['place_order',
             #  ['ETH/USDC', '258403', '0', '0.516806', 'BUY', 'MARKET', '0', '0', '0', 'ROUTER', '0', 'INTERNAL',
             #   '0']],
@@ -252,7 +254,7 @@ class CLIClient:
             return await client.get_orders(trading_account, int(args[0]), int(args[1]), int(args[2]))
 
         elif command.startswith('get_order'):
-            return await client.get_order(trading_account, int(args[0],16 if args[0].startswith('0x') else 10))
+            return await client.get_order(trading_account, int(args[0], 16 if args[0].startswith('0x') else 10))
 
         elif command.startswith('get_bbo'):
             b, q = args[0].split('/')

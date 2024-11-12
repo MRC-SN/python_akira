@@ -1,6 +1,7 @@
-import logging
 from dataclasses import dataclass
 from typing import Dict, Union
+
+from starknet_py.utils.typed_data import TypedData
 
 from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
@@ -19,7 +20,7 @@ class AppDomain:
 class SnTypedPedersenHasher:
     """Mirrors hashing of sn function for our objects"""
 
-    def __init__(self, erc_to_addr: Dict[ERC20Token, ContractAddress], domain: AppDomain,exchange:ContractAddress):
+    def __init__(self, erc_to_addr: Dict[ERC20Token, ContractAddress], domain: AppDomain, exchange: ContractAddress):
         self._erc_to_addr = erc_to_addr
         self._domain = domain
         self._exchange = exchange
@@ -29,7 +30,6 @@ class SnTypedPedersenHasher:
             data = withdraw_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
         elif isinstance(obj, Order):
             data = get_order_typed_data(obj, self._erc_to_addr, self._domain, self._exchange)
-            logging.info(f'{obj.price,obj.qty}:::: data {data.message}')
         elif isinstance(obj, IncreaseNonce):
             data = increase_nonce_typed_data(obj, self._erc_to_addr, self._domain)
             return data.message_hash(obj.maker.as_int())
@@ -37,4 +37,5 @@ class SnTypedPedersenHasher:
             data = cancel_typed_data(obj, self._erc_to_addr, self._domain)
         else:
             raise Exception(f"Unknown object type {obj} {type(obj)}")
+        data = TypedData.from_dict(data)
         return data.message_hash(obj.maker.as_int())

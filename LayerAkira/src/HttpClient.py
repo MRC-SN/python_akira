@@ -1,8 +1,7 @@
 import logging
-from typing import Dict, Optional, List, Union, Tuple
+from typing import Dict, Optional, List, Union, Tuple, Callable
 
 from aiohttp import ClientSession
-from starknet_py.hash.utils import message_signature
 from starknet_py.utils.typed_data import TypedData
 
 from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher
@@ -44,6 +43,7 @@ class AsyncApiHttpClient:
     """
 
     def __init__(self, sn_hasher: SnTypedPedersenHasher,
+                 sign_cb: Callable[[int, int], Tuple[int, int]],
                  erc_to_decimals: Dict[ERC20Token, int],
                  exchange_http_host='http://localhost:8080',
                  verbose=False):
@@ -60,6 +60,7 @@ class AsyncApiHttpClient:
         self._erc_to_decimals = erc_to_decimals
         self._order_serder = SimpleOrderSerializer(erc_to_decimals)
         self._verbose = verbose
+        self._sign_cb = sign_cb
 
     async def close(self):
         await self._http.close()
@@ -72,7 +73,7 @@ class AsyncApiHttpClient:
         url = f'{self._http_host}/sign/auth'
         msg_hash = get_typed_data(int(msg.data), chain_id).message_hash(account.as_int())
         return await self._post_query(url, {'msg': msg.data,
-                                            'signature': [hex(x) for x in list(message_signature(msg_hash, int(pk, 16)))]})
+                                            'signature': [hex(x) for x in list(self._sign_cb(msg_hash, int(pk, 16)))]})
 
     async def query_gas_price(self, jwt: str) -> Result[int]:
         gas_px = await self._get_query(f'{self._http_host}/gas/price', jwt)
@@ -141,7 +142,7 @@ class AsyncApiHttpClient:
 
     async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee):
         req = IncreaseNonce(maker, new_nonce, gas_fee, random_int(), (0, 0))
-        req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
+        req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign],
                 'new_nonce': new_nonce,
                 'salt': hex(req.salt), 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
@@ -157,7 +158,7 @@ class AsyncApiHttpClient:
         :return: poseidon hash of request
         """
         req = CancelRequest(maker, order_hash, None, random_int(), (0, 0))
-        req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
+        req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         return await self._post_query(
             f'{self._http_host}/cancel_order',
             {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': hex(order_hash), 'salt': hex(req.salt),
@@ -173,7 +174,7 @@ class AsyncApiHttpClient:
         :return: poseidon hash of request
         """
         req = CancelRequest(maker, None, ticker, random_int(), (0, 0))
-        req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
+        req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         return await self._post_query(
             f'{self._http_host}/cancel_all',
             {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': 0, 'salt': hex(req.salt),
@@ -185,7 +186,7 @@ class AsyncApiHttpClient:
                        gas_fee: GasFee) -> Result[int]:
         req = Withdraw(maker, token, amount, random_int(), (0, 0), gas_fee, maker)
 
-        req.sign = message_signature(self._hasher.hash(req), int(pk, 16))
+        req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'token': req.token,
                 'salt': hex(req.salt), 'receiver': req.receiver.as_str(),
                 'amount': precise_from_price_to_str_convert(req.amount, self._erc_to_decimals[req.token]),

@@ -10,7 +10,7 @@ from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.FeeTypes import GasFee, FixedFee, OrderFee
 from LayerAkira.src.common.Requests import Withdraw, Order, CancelRequest, OrderFlags, STPMode, IncreaseNonce, Quantity, \
-    Constraints, SpotTicker
+    Constraints, SpotTicker, SignScheme
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.common import random_int, precise_to_price_convert, precise_from_price_to_str_convert
 from LayerAkira.src.common.Responses import ReducedOrderInfo, OrderInfo, TableLevel, Snapshot, Table, RouterDetails, \
@@ -26,7 +26,7 @@ def get_typed_data(message: int, chain_id: int, name="LayerAkira Exchange", vers
         hex(message)
     )
     return TypedData.from_dict(
-        {"domain": {"name": name, "version": version, "chainId": chain_id},
+        {"domain": {"name": name, "version": version, "chainId": hex(chain_id)},
          "types": {
              "StarkNetDomain": [{"name": "name", "type": "felt"},
                                 {"name": "version", "type": "felt"}, {"name": "chainId", "type": "felt"}],
@@ -140,17 +140,19 @@ class AsyncApiHttpClient:
             int(levels['msg_id']))
         )
 
-    async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee):
-        req = IncreaseNonce(maker, new_nonce, gas_fee, random_int(), (0, 0))
+    async def increase_nonce(self, pk: str, jwt: str, maker: ContractAddress, new_nonce: int, gas_fee: GasFee, sign_scheme:SignScheme):
+        req = IncreaseNonce(maker, new_nonce, gas_fee, random_int(), (0, 0), sign_scheme)
         req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign],
                 'new_nonce': new_nonce,
-                'salt': hex(req.salt), 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
+                'salt': hex(req.salt), 'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1],
+                'sign_scheme': req.sign_scheme.value
                 }
         return await self._post_query(f'{self._http_host}/increase_nonce', data, jwt)
 
-    async def cancel_order(self, pk: str, jwt: str, maker: ContractAddress, order_hash: int) -> Result[int]:
+    async def cancel_order(self, pk: str, jwt: str, maker: ContractAddress, order_hash: int, sign_scheme:SignScheme) -> Result[int]:
         """
+        :param sign_scheme:
         :param pk: private key of signer for trading account
         :param jwt: jwt token
         :param maker: trading account
@@ -162,11 +164,12 @@ class AsyncApiHttpClient:
         return await self._post_query(
             f'{self._http_host}/cancel_order',
             {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': hex(order_hash), 'salt': hex(req.salt),
-             'ticker': {'base': '0x0', 'quote': '0x0', 'to_ecosystem_book': True}
+             'ticker': {'base': '0x0', 'quote': '0x0', 'to_ecosystem_book': True},'sign_scheme':sign_scheme.value
              }, jwt)
 
-    async def cancel_all_orders(self, pk: str, jwt: str, maker: ContractAddress, ticker: SpotTicker) -> Result[int]:
+    async def cancel_all_orders(self, pk: str, jwt: str, maker: ContractAddress, ticker: SpotTicker,sign_scheme:SignScheme) -> Result[int]:
         """
+        :param sign_scheme:
         :param pk: private key of signer for trading account
         :param jwt: jwt token
         :param maker: trading account
@@ -179,18 +182,20 @@ class AsyncApiHttpClient:
             f'{self._http_host}/cancel_all',
             {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'order_hash': 0, 'salt': hex(req.salt),
              'ticker': {'base': ticker.pair.base, 'quote': ticker.pair.quote,
-                        'to_ecosystem_book': ticker.is_ecosystem_book}
+                        'to_ecosystem_book': ticker.is_ecosystem_book},
+             'sign_scheme': sign_scheme.value
              }, jwt)
 
     async def withdraw(self, pk: str, jwt: str, maker: ContractAddress, token: ERC20Token, amount: int,
                        gas_fee: GasFee) -> Result[int]:
-        req = Withdraw(maker, token, amount, random_int(), (0, 0), gas_fee, maker)
+        req = Withdraw(maker, token, amount, random_int(), (0, 0), gas_fee, maker, SignScheme.ECDSA)
 
         req.sign = self._sign_cb(self._hasher.hash(req), int(pk, 16))
         data = {'maker': req.maker.as_str(), 'sign': [hex(x) for x in req.sign], 'token': req.token,
                 'salt': hex(req.salt), 'receiver': req.receiver.as_str(),
                 'amount': precise_from_price_to_str_convert(req.amount, self._erc_to_decimals[req.token]),
-                'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1]
+                'gas_fee': serialize_gas_fee(gas_fee, self._erc_to_decimals)[1],
+                'sign_scheme': req.sign_scheme.value
                 }
         return await self._post_query(f'{self._http_host}/withdraw', data, jwt)
 
@@ -308,7 +313,8 @@ class AsyncApiHttpClient:
                     OrderFlags(*[bool(x) for x in d['flags']]),
                     (0, 0),
                     (0, 0),
-                    d['source']
+                    d['source'],
+                    SignScheme(d['sign_scheme'])
                 ),
                 state_info
             )

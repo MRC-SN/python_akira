@@ -1,9 +1,8 @@
 from starknet_py.serialization import Uint256Serializer
-from starknet_py.utils.typed_data import TypedData
 
+from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.Requests import Order, IncreaseNonce, CancelRequest, Withdraw
 from LayerAkira.src.hasher.types import cancel_all_onchain_type, order_type, cancel_type, cancel_all_type, withdraw_type
-from LayerAkira.src.common.ContractAddress import ContractAddress
 
 u256_serde = Uint256Serializer()
 
@@ -64,7 +63,8 @@ def get_order_typed_data(obj: Order, erc_to_addr, domain, exchange: ContractAddr
             'external_funds': obj.flags.external_funds,
         },
         'exchange': exchange.as_str(),
-        'source': obj.source
+        'source': obj.source,
+        'sign_scheme': obj.sign_scheme.value
     }
     return {"domain": {"name": domain.name, "version": domain.version,
                        "chainId": hex(domain.chain_id)},
@@ -82,7 +82,8 @@ def increase_nonce_typed_data(obj: IncreaseNonce, erc_to_addr, domain):
                 'max_gas_price': make_u256_dict(obj.gas_fee.max_gas_price),
                 'r0': make_u256_dict(obj.gas_fee.conversion_rate[0]),
                 'r1': make_u256_dict(obj.gas_fee.conversion_rate[1]),
-            }
+            },
+            'sign_scheme': obj.sign_scheme.value
         }}
 
 
@@ -123,5 +124,6 @@ def withdraw_typed_data(withdraw: Withdraw, erc_to_addr, domain, exchange: Contr
                 'r0': make_u256_dict(gas_fee.conversion_rate[0]), 'r1': make_u256_dict(gas_fee.conversion_rate[1])
             },
             'receiver': withdraw.receiver.as_str(),
-            'exchange': exchange.as_str()
+            'exchange': exchange.as_str(),
+            'sign_scheme': withdraw.sign_scheme.value
         }}

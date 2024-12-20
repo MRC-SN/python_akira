@@ -37,7 +37,9 @@ class ERC20Spec:
 @dataclass
 class CLIConfig:
     node: str
-    exchange_address: ContractAddress
+    core_address: ContractAddress
+    executor_address: ContractAddress
+    router_address: ContractAddress
     http: str
     wss: str
     tokens: List[ERC20Spec]
@@ -63,7 +65,10 @@ def parse_cli_cfg(file_path: str):
     acc = ContractAddress(data['trading_account']['account_address'])
     pub = ContractAddress(data['trading_account']['public_key'])
     pk = data['trading_account']['private_key']
-    return CLIConfig(data['node_url'], ContractAddress(data['exchange_address']), data['http'], data['wss'], tokens,
+    return CLIConfig(data['node_url'], ContractAddress(data['core_address']),
+                     ContractAddress(data['executor_address']),
+                     ContractAddress(data['router_address']),
+                     data['http'], data['wss'], tokens,
                      StarknetChainId.SEPOLIA if data['is_testnet']
                      else StarknetChainId.MAINNET, steps,
                      data['gas_oracle_skew_multiplier'], data['verbose'], (acc, pub, pk))
@@ -90,16 +95,21 @@ class CLIClient:
     async def start(self, domain):
         node_client = FullNodeClient(node_url=self.cli_cfg.node)
         erc_to_addr = {token.symbol: token.address for token in self.cli_cfg.tokens}
-        contract_client = AkiraExchangeClient(node_client, self.cli_cfg.exchange_address, erc_to_addr)
+        contract_client = AkiraExchangeClient(node_client, self.cli_cfg.core_address,
+                                              self.cli_cfg.executor_address, self.cli_cfg.router_address,
+                                              erc_to_addr)
         await contract_client.init()
 
-        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.exchange_address)
+        sn_hasher = SnTypedPedersenHasher(erc_to_addr, domain, self.cli_cfg.core_address,
+                                          self.cli_cfg.executor_address)
         self._erc_to_decimals = {token.symbol: token.decimals for token in self.cli_cfg.tokens}
         api_client = AsyncApiHttpClient(sn_hasher, lambda msg_hash, pk: message_signature(msg_hash, pk),
                                         self._erc_to_decimals, self.cli_cfg.http, self.cli_cfg.verbose)
 
         self.exchange_client = JointHttpClient(node_client, api_client, contract_client,
-                                               self.cli_cfg.exchange_address, erc_to_addr,
+                                               self.cli_cfg.core_address,
+                                               self.cli_cfg.executor_address,
+                                               erc_to_addr,
                                                self._erc_to_decimals,
                                                self.cli_cfg.chain_id,
                                                self.cli_cfg.gas_multiplier,
@@ -198,7 +208,7 @@ class CLIClient:
                              trading_account: Optional[ContractAddress],
                              gas_fee_steps: Dict[str, Dict[bool, int]]):
         async def wait_tx_receipt(tx_hash: str):
-            is_succ, reciept_or_err = await client.akira.account_executor.wait_for_tx(tx_hash, 2, 60)
+            is_succ, reciept_or_err = await client.akira._account_executor.wait_for_tx(tx_hash, 2, 60)
             if not is_succ:
                 logging.warning(f'Failed to wait for receipt for {tx_hash} due {reciept_or_err}')
             return reciept_or_err
@@ -222,6 +232,10 @@ class CLIClient:
 
         elif command.startswith('deposit'):
             tx_hash = await client.deposit_on_exchange(trading_account, ERC20Token(args[0]), args[1])
+            if tx_hash is not None: await wait_tx_receipt(tx_hash)
+            return tx_hash
+        elif command.startswith('approve_executor'):
+            tx_hash = await client.approve_executor(trading_account)
             if tx_hash is not None: await wait_tx_receipt(tx_hash)
             return tx_hash
 

@@ -20,6 +20,7 @@ class StarknetAccount:
 class StarknetSmartContract:
     def __init__(self, contract: Contract):
         self.contract = contract
+        self.address = contract.address
         self._full_client: FullNodeClient = contract.client
 
     def prepare_calldata(self, method_name: str, *args, **kwargs) -> Call:

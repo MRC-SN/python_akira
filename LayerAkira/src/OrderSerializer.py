@@ -72,5 +72,6 @@ class SimpleOrderSerializer:
             "salt": hex(data.salt),
             "sign": [hex(x) for x in data.sign],
             "router_sign": [hex(x) for x in data.router_sign],
-            'source': data.source
+            'source': data.source,
+            'sign_scheme': data.sign_scheme.value,
         }

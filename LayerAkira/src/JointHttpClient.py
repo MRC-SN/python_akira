@@ -23,6 +23,7 @@ from LayerAkira.src.common.common import Result
 from LayerAkira.src.common.common import precise_to_price_convert, random_int
 from LayerAkira.src.common.constants import ZERO_ADDRESS
 from LayerAkira.src.hasher.Hasher import SnTypedPedersenHasher, AppDomain
+from common.Requests import SignScheme
 
 
 class JointHttpClient:
@@ -36,7 +37,8 @@ class JointHttpClient:
     def __init__(self, node_client: FullNodeClient,
                  api_http_client: AsyncApiHttpClient,
                  akira_exchange_client: AkiraExchangeClient,
-                 exchange_addr: ContractAddress,
+                 core_address: ContractAddress,
+                 executor_address: ContractAddress,
                  erc_to_addr: Dict[ERC20Token, ContractAddress],
                  token_to_decimals: Dict[ERC20Token, int],
                  chain=StarknetChainId.SEPOLIA,
@@ -62,10 +64,11 @@ class JointHttpClient:
 
         self._client, self._chain, self._gas_multiplier = node_client, chain, gas_multiplier
         self._token_to_decimals = token_to_decimals
-        self._exchange_addr = exchange_addr
+        self._executor_address = executor_address
+        self._core_address = core_address
 
         self._tokens_to_addr: Dict[ERC20Token, ContractAddress] = erc_to_addr
-        self._hasher = SnTypedPedersenHasher(erc_to_addr, AppDomain(chain.value), exchange_addr)
+        self._hasher = SnTypedPedersenHasher(erc_to_addr, AppDomain(chain.value), core_address, executor_address)
 
         self._address_to_account: Dict[ContractAddress, Account] = {}
         self._tokens_to_erc: Dict[ERC20Token, ERC20Client] = {}
@@ -107,7 +110,7 @@ class JointHttpClient:
                 return res
 
             self._addr_to_erc_balances[acc_addr][erc] = res.data
-            res = await self._tokens_to_erc[erc].allowance(acc_addr, self._exchange_addr)
+            res = await self._tokens_to_erc[erc].allowance(acc_addr, self._core_address)
             if res.data is None:
                 logging.warning(f'Fail to query allowances due {res}')
                 return res
@@ -141,8 +144,9 @@ class JointHttpClient:
         for k, v in self._tokens_to_addr.items():
             self._tokens_to_erc[k] = ERC20Client(self._client, v)
 
-        self.fee_recipient = (await self.akira.get_fee_recipient()).data
-        assert self.fee_recipient is not None
+        self.fee_recipient = await self.akira.get_fee_recipient()
+        assert self.fee_recipient.data is not None, f'Failed to query fee recipient: {self.fee_recipient}'
+        self.fee_recipient = ContractAddress(self.fee_recipient.data)
 
     async def query_gas_price(self, acc: ContractAddress) -> Result[int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
@@ -186,7 +190,7 @@ class JointHttpClient:
         w = Withdraw(acc_addr, token, amount, random_int(), (0, 0),
                      GasFee(w_steps.data, ERC20Token.ETH, 2 * gas_price.data, (1, 1)),
                      ## onchain requires x2 gas
-                     acc_addr)
+                     acc_addr, SignScheme.NOT_SPECIFIED)
 
         if self._verbose:
             logging.info(f'Withdraw hash {hex(self._hasher.hash(w))}')
@@ -227,13 +231,13 @@ class JointHttpClient:
     async def approve_exchange(self, acc_addr: ContractAddress, token: ERC20Token, amount: str):
         account = self._address_to_account[acc_addr]
         amount = precise_to_price_convert(amount, self._token_to_decimals[token])
-        is_succ, result = await self._tokens_to_erc[token].approve(account, self._exchange_addr, amount,
+        is_succ, result = await self._tokens_to_erc[token].approve(account, self._core_address, amount,
                                                                    ResourceBoundsMapping.init_with_zeros(),
                                                                    None, False)
         if not is_succ:
             logging.info(f'Failed to simulate {result}')
             return
-        is_succ, result = await self._tokens_to_erc[token].approve(account, self._exchange_addr, amount,
+        is_succ, result = await self._tokens_to_erc[token].approve(account, self._core_address, amount,
                                                                    result.fee_estimation.to_resource_bounds(), None,
                                                                    True)
         if is_succ:
@@ -262,6 +266,25 @@ class JointHttpClient:
         else:
             logging.warning(f'Failed to sent tx due {result}')
 
+    async def approve_executor(self, acc_addr: ContractAddress):
+        account = self._address_to_account[acc_addr]
+        is_succ, result = await self.akira.approve_executor(account, ResourceBoundsMapping.init_with_zeros(),
+                                                            None,
+                                                            False)
+        if not is_succ:
+            logging.info(f'Failed to simulate {result}')
+            return
+        is_succ, result = await self.akira.approve_executor(account,
+                                                            result.fee_estimation.to_resource_bounds(),
+                                                            None,
+                                                            True)
+        if is_succ:
+            logging.info(f'Sent transaction {hex(result.transaction_hash)}')
+            return hex(result.transaction_hash)
+        else:
+            logging.warning(f'Failed to sent tx due {result}')
+
+    # approve_executor
     async def bind_to_signer(self, acc_addr: ContractAddress):
         """
             Simple binding of trading account acc_addr to its public key on exchange.
@@ -351,22 +374,25 @@ class JointHttpClient:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         return await self._api_client.place_order(jwt, order.data)
 
-    async def cancel_order(self, acc: ContractAddress, maker: ContractAddress, order_hash: int) -> Result[
+    async def cancel_order(self, acc: ContractAddress, maker: ContractAddress, order_hash: int,
+                           sign_scheme: SignScheme.ECDSA) -> Result[
         int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
-        return await self._api_client.cancel_order(pk, jwt, maker, order_hash)
+        return await self._api_client.cancel_order(pk, jwt, maker, order_hash, sign_scheme)
 
-    async def cancel_all_orders(self, acc: ContractAddress, maker: ContractAddress, ticker: SpotTicker) -> Result[int]:
+    async def cancel_all_orders(self, acc: ContractAddress, maker: ContractAddress, ticker: SpotTicker,
+                                sign_scheme=SignScheme.ECDSA) -> Result[int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
-        return await self._api_client.cancel_all_orders(pk, jwt, maker, ticker)
+        return await self._api_client.cancel_all_orders(pk, jwt, maker, ticker, sign_scheme)
 
-    async def increase_nonce(self, acc: ContractAddress, maker: ContractAddress, new_nonce: int, gas_fee: GasFee) -> \
+    async def increase_nonce(self, acc: ContractAddress, maker: ContractAddress, new_nonce: int, gas_fee: GasFee,
+                             sign_scheme=SignScheme.ECDSA) -> \
             Result[int]:
         jwt = self._signer_key_to_jwt[ContractAddress(self._address_to_account[acc].signer.public_key)]
         pk = self._signer_key_to_pk[ContractAddress(self._address_to_account[acc].signer.public_key)]
-        return await self._api_client.increase_nonce(pk, jwt, maker, new_nonce, gas_fee)
+        return await self._api_client.increase_nonce(pk, jwt, maker, new_nonce, gas_fee, sign_scheme)
 
     async def withdraw(self, acc: ContractAddress, maker: ContractAddress, token: ERC20Token, amount: int,
                        gas_fee: GasFee) -> Result[int]:
@@ -392,7 +418,9 @@ class JointHttpClient:
                       ),
                       random_int(),
                       kwargs['order_flags'],
-                      (1, 1), (0, 0)
+                      (1, 1), (0, 0),
+                      sign_scheme=SignScheme.ECDSA if not kwargs['order_flags'].external_funds else SignScheme.ACCOUNT
+
                       )
         if order.is_passive_order():
             order.fee.router_fee = FixedFee(ZERO_ADDRESS, 0, 0, order.fee.router_fee.apply_to_receipt_amount)

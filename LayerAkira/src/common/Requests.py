@@ -82,6 +82,14 @@ class Constraints:
 
 
 @dataclass
+class SignScheme(str, Enum):
+    ECDSA = "ecdsa curve"
+    ACCOUNT = "account"
+    DIRECT = "direct"
+    NOT_SPECIFIED = ""
+
+
+@dataclass
 class Order:
     maker: ContractAddress
     price: int
@@ -94,10 +102,12 @@ class Order:
     sign: Tuple[int, int]
     router_sign: Tuple[int, int]
     source: str = 'layerakira'
+    sign_scheme: SignScheme = None
 
     def __post_init__(self):
         assert isinstance(self.maker, ContractAddress)
         assert isinstance(self.constraints.router_signer, ContractAddress)
+        assert self.sign is not None, 'Sign scheme for order should be specified'
 
     def is_passive_order(self):
         return not self.type == OrderType.MARKET and self.post_only
@@ -165,6 +175,7 @@ class IncreaseNonce:
     gas_fee: GasFee
     salt: int
     sign: Tuple[int, int]
+    sign_scheme: SignScheme
 
 
 @dataclass
@@ -176,6 +187,7 @@ class Withdraw:
     sign: Tuple[int, int]
     gas_fee: GasFee
     receiver: ContractAddress
+    sign_scheme: SignScheme
 
     def __str__(self):
         fields = [

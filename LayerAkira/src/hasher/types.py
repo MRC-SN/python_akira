@@ -41,6 +41,10 @@ withdraw_type = {
         {
             "name": "exchange",
             "type": "felt"
+        },
+        {
+            "name": "sign_scheme",
+            "type": "felt"
         }
     ],
     "u256": [
@@ -137,6 +141,10 @@ order_type = {
             "name": "source",
             "type": "felt"
         },
+        {
+            "name": "sign_scheme",
+            "type": "felt"
+        }
     ],
     "u256": [
         {
@@ -350,7 +358,8 @@ cancel_all_type = {
         {
             "name": "ticker",
             "type": "Ticker"
-        }
+        },
+
     ]
 }
 cancel_all_onchain_type = {
@@ -380,6 +389,10 @@ cancel_all_onchain_type = {
         {
             "name": "gas_fee",
             "type": "GasFee"
+        },
+        {
+            "name": "sign_scheme",
+            "type": "felt"
         }
     ],
     "u256": [

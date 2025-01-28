@@ -265,5 +265,5 @@ class WsClient:
                                                TradedPair(ERC20Token(data['pair']['base']),
                                                           ERC20Token(data['pair']['quote'])))
             except Exception as e:
-            logging.exception(f'Failed to parse due {e} this\n: {data}')
+                logging.exception(f'Failed to parse due {e} this\n: {data}')
             raise e

@@ -257,6 +257,7 @@ class WsClient:
                         order_hash=int(d['order_hash'], 16),
                         client=ContractAddress(data['client']),
                         source=d['source'],
+                        old_tx_hash=int(d.get('old_tx_hash'), 16) if d.get('old_tx_hash') is not None else None,
                     )
                 else:
 

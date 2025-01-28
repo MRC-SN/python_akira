@@ -128,6 +128,7 @@ class TxHashRollupReport:
     order_hash: int
     client: ContractAddress
     source: str
+    old_tx_hash: Optional[int] = None
 
 
 @dataclass

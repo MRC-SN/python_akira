@@ -122,6 +122,14 @@ class FailProcessingReport:
     entity_hash: int
     error_code_orderbook:Optional[str]
 
+@dataclass
+class TxHashRollupReport:
+    tx_hash: int
+    order_hash: int
+    client: ContractAddress
+    source: str
+    old_tx_hash: Optional[int] = None
+
 
 @dataclass
 class OrderInfo:

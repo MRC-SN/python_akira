@@ -12,7 +12,7 @@ from LayerAkira.src.common.ContractAddress import ContractAddress
 from LayerAkira.src.common.ERC20Token import ERC20Token
 from LayerAkira.src.common.TradedPair import TradedPair
 from LayerAkira.src.common.Responses import TableLevel, BBO, Snapshot, Table, Trade, ExecReport, OrderStatus, \
-    OrderMatcherResult, CancelAllReport, FailProcessingReport
+    OrderMatcherResult, CancelAllReport, FailProcessingReport, TxHashRollupReport
 from LayerAkira.src.common.common import precise_to_price_convert
 
 
@@ -233,28 +233,37 @@ class WsClient:
                          d['is_sell_side'],
                          d['time'])
         elif stream == Stream.FILLS:
-            if 'hash' in d:
-                return ExecReport(ContractAddress(data['client']), pair,
-                                  precise_to_price_convert(d['fill_price'], q_decimals),
-                                  precise_to_price_convert(d['fill_base_qty'], b_decimals),
-                                  precise_to_price_convert(d['fill_quote_qty'], q_decimals),
-                                  precise_to_price_convert(d['acc_base_qty'], b_decimals),
-                                  precise_to_price_convert(d['acc_quote_qty'], q_decimals),
-                                  int(d['hash'], 16),
-                                  d['is_sell_side'],
-                                  OrderStatus(d['status']),
-                                  OrderMatcherResult(d['matcher_result']),
-                                  d.get('source', None)
-                                  )
-            elif 'report_type' in d:
-                return FailProcessingReport(ContractAddress(data['client']), d['report_type'],
-                                            int(d['req_hash'], 16), int(d['entity_hash'], 16),
-                                            d.get('error_code_orderbook', None))
-            else:
-                try:
-                    return CancelAllReport(ContractAddress(data['client']), int(d['cancel_ticker_hash'], 16),
-                                           TradedPair(ERC20Token(data['pair']['base']),
-                                                      ERC20Token(data['pair']['quote'])))
-                except Exception as e:
-                    logging.exception(f'Failed to parse due {e} this\n: {data}')
-                    raise e
+            try:
+                if 'hash' in d:
+                    return ExecReport(ContractAddress(data['client']), pair,
+                                      precise_to_price_convert(d['fill_price'], q_decimals),
+                                      precise_to_price_convert(d['fill_base_qty'], b_decimals),
+                                      precise_to_price_convert(d['fill_quote_qty'], q_decimals),
+                                      precise_to_price_convert(d['acc_base_qty'], b_decimals),
+                                      precise_to_price_convert(d['acc_quote_qty'], q_decimals),
+                                      int(d['hash'], 16),
+                                      d['is_sell_side'],
+                                      OrderStatus(d['status']),
+                                      OrderMatcherResult(d['matcher_result']),
+                                      d.get('source', None)
+                                      )
+                elif 'report_type' in d:
+                    return FailProcessingReport(ContractAddress(data['client']), d['report_type'],
+                                                int(d['req_hash'], 16), int(d['entity_hash'], 16),
+                                                d.get('error_code_orderbook', None))
+                elif 'tx_hash' in d:
+                    return TxHashRollupReport(
+                        tx_hash=int(d['tx_hash'], 16),
+                        order_hash=int(d['order_hash'], 16),
+                        client=ContractAddress(data['client']),
+                        source=d['source'],
+                        old_tx_hash=int(d.get('old_tx_hash'), 16) if d.get('old_tx_hash') is not None else None,
+                    )
+                else:
+
+                        return CancelAllReport(ContractAddress(data['client']), int(d['cancel_ticker_hash'], 16),
+                                               TradedPair(ERC20Token(data['pair']['base']),
+                                                          ERC20Token(data['pair']['quote'])))
+            except Exception as e:
+                logging.exception(f'Failed to parse due {e} this\n: {data}')
+            raise e
